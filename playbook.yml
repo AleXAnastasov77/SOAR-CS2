@@ -1,0 +1,14 @@
+- hosts: siem
+  become: yes
+  roles:
+    - siem
+
+- hosts: soc
+  become: yes
+  roles:
+    - soc_tools
+
+- hosts: security
+  become: yes
+  roles:
+    - security_tools

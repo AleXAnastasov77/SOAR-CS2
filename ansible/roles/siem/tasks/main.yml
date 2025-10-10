@@ -1,0 +1,67 @@
+---
+- name: Update system
+  apt:
+    update_cache: yes
+
+- name: Install required packages
+  apt:
+    name:
+      - apt-transport-https
+      - curl
+      - gnupg
+      - software-properties-common
+    state: present
+
+# --- Elasticsearch ---
+- name: Add Elastic GPG key
+  shell: |
+    curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elastic.gpg
+
+- name: Add Elastic APT repository
+  apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/elastic.gpg] https://artifacts.elastic.co/packages/{{ elastic_version }}/apt stable main"
+    state: present
+
+- name: Install Elasticsearch and Kibana
+  apt:
+    name:
+      - elasticsearch
+      - kibana
+    state: present
+    update_cache: yes
+
+- name: Deploy Elasticsearch config
+  template:
+    src: elasticsearch.yml.j2
+    dest: /etc/elasticsearch/elasticsearch.yml
+    mode: '0644'
+  notify: Restart Elasticsearch
+
+- name: Deploy Kibana config
+  template:
+    src: kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+    mode: '0644'
+  notify: Restart Kibana
+
+# --- Wazuh ---
+- name: Add Wazuh repository
+  copy:
+    src: wazuh.repo
+    dest: /etc/apt/sources.list.d/wazuh.list
+
+- name: Add Wazuh GPG key
+  apt_key:
+    url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
+    state: present
+
+- name: Install Wazuh Manager
+  apt:
+    name: wazuh-manager
+    state: present
+
+- name: Deploy Wazuh Manager config
+  template:
+    src: wazuh-manager.conf.j2
+    dest: /var/ossec/etc/ossec.conf
+  notify: Restart Wazuh Manager
