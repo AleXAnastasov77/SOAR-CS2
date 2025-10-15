@@ -303,13 +303,16 @@ resource "aws_ec2_client_vpn_network_association" "na_siem" {
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpnendpoint_cs2.id
   subnet_id              = aws_subnet.privateSIEM_cs2.id
 }
-resource "aws_ec2_client_vpn_network_association" "na_securitytools" {
+resource "aws_ec2_client_vpn_route" "to_securitytools" {
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpnendpoint_cs2.id
-  subnet_id              = aws_subnet.privateSecurityTools_cs2.id
+  destination_cidr_block = aws_subnet.privateSecurityTools_cs2.cidr_block
+  target_vpc_subnet_id   = aws_subnet.privateSIEM_cs2.id
 }
-resource "aws_ec2_client_vpn_network_association" "na_soctools" {
+
+resource "aws_ec2_client_vpn_route" "to_SOCTools" {
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpnendpoint_cs2.id
-  subnet_id              = aws_subnet.privateSOCTools_cs2.id
+  destination_cidr_block = aws_subnet.privateSOCTools_cs2.cidr_block
+  target_vpc_subnet_id   = aws_subnet.privateSIEM_cs2.id
 }
 
 resource "aws_ec2_client_vpn_authorization_rule" "authorization_rule" {
