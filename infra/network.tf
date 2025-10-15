@@ -1,5 +1,5 @@
 resource "aws_vpc" "vpc_cs2" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
 
   tags = {
@@ -16,8 +16,8 @@ resource "aws_subnet" "public_cs2" {
   }
 }
 resource "aws_subnet" "privateSIEM_cs2" {
-  vpc_id            = aws_vpc.vpc_cs2.id
-  cidr_block        = "10.0.10.0/24"
+  vpc_id     = aws_vpc.vpc_cs2.id
+  cidr_block = "10.0.10.0/24"
 
 
   tags = {
@@ -25,16 +25,16 @@ resource "aws_subnet" "privateSIEM_cs2" {
   }
 }
 resource "aws_subnet" "privateSecurityTools_cs2" {
-  vpc_id            = aws_vpc.vpc_cs2.id
-  cidr_block        = "10.0.11.0/24"
+  vpc_id     = aws_vpc.vpc_cs2.id
+  cidr_block = "10.0.11.0/24"
   tags = {
     Name = "privateSecurityTools_cs2"
   }
 }
 
 resource "aws_subnet" "privateSOCTools_cs2" {
-  vpc_id            = aws_vpc.vpc_cs2.id
-  cidr_block        = "10.0.12.0/24"
+  vpc_id     = aws_vpc.vpc_cs2.id
+  cidr_block = "10.0.12.0/24"
   tags = {
     Name = "privateSOCTools_cs2"
   }
@@ -79,8 +79,8 @@ resource "aws_route_table" "rt_private_cs2" {
   vpc_id = aws_vpc.vpc_cs2.id
 
   route {
-    cidr_block = "0.0.0.0/0"
-     network_interface_id = aws_instance.nat_gw_instance.primary_network_interface_id
+    cidr_block           = "0.0.0.0/0"
+    network_interface_id = aws_instance.nat_gw_instance.primary_network_interface_id
   }
   tags = {
     Name = "rt_private_cs2"
@@ -114,10 +114,10 @@ resource "aws_security_group" "endpoints_sg" {
   vpc_id      = aws_vpc.vpc_cs2.id
 
   ingress {
-    description     = "Allow SSH from VPC CIDR (VPN included)"
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
+    description = "Allow SSH from VPC CIDR (VPN included)"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
 
@@ -138,17 +138,17 @@ resource "aws_security_group" "securitytools_sg" {
   vpc_id      = aws_vpc.vpc_cs2.id
 
   ingress {
-    description     = "Allow SSH from VPC CIDR (VPN included)"
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
+    description = "Allow SSH from VPC CIDR (VPN included)"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "OpenVAS"
-    from_port       = 9390
-    to_port         = 9390
-    protocol        = "tcp"
+    description = "OpenVAS"
+    from_port   = 9390
+    to_port     = 9390
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
 
@@ -169,31 +169,31 @@ resource "aws_security_group" "SOCTools_sg" {
   vpc_id      = aws_vpc.vpc_cs2.id
 
   ingress {
-    description     = "Allow SSH from VPC CIDR (VPN included)"
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
+    description = "Allow SSH from VPC CIDR (VPN included)"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "MISP Web UI"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
+    description = "MISP Web UI"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "MISP Web UI"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
+    description = "MISP Web UI"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "The Hive"
-    from_port       = 9000
-    to_port         = 9000
-    protocol        = "tcp"
+    description = "The Hive"
+    from_port   = 9000
+    to_port     = 9000
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
 
@@ -215,52 +215,52 @@ resource "aws_security_group" "SIEM_sg" {
   vpc_id      = aws_vpc.vpc_cs2.id
 
   ingress {
-    description     = "Allow SSH from VPC CIDR (VPN included)"
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
+    description = "Allow SSH from VPC CIDR (VPN included)"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "Elasticsearch"
-    from_port       = 9200
-    to_port         = 9200
-    protocol        = "tcp"
+    description = "Elasticsearch"
+    from_port   = 9200
+    to_port     = 9200
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "Kibana"
-    from_port       = 5601
-    to_port         = 5601
-    protocol        = "tcp"
+    description = "Kibana"
+    from_port   = 5601
+    to_port     = 5601
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "Logstash"
-    from_port       = 5044
-    to_port         = 5044
-    protocol        = "tcp"
+    description = "Logstash"
+    from_port   = 5044
+    to_port     = 5044
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "Wazuh Manager"
-    from_port       = 1514
-    to_port         = 1514
-    protocol        = "udp"
+    description = "Wazuh Manager"
+    from_port   = 1514
+    to_port     = 1514
+    protocol    = "udp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "Wazuh Manager"
-    from_port       = 1515
-    to_port         = 1515
-    protocol        = "tcp"
+    description = "Wazuh Manager"
+    from_port   = 1515
+    to_port     = 1515
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
-    description     = "Wazuh API"
-    from_port       = 55000
-    to_port         = 55000
-    protocol        = "tcp"
+    description = "Wazuh API"
+    from_port   = 55000
+    to_port     = 55000
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
 
@@ -281,9 +281,9 @@ resource "aws_ec2_client_vpn_endpoint" "vpnendpoint_cs2" {
   description            = "VPN for monitoring access"
   server_certificate_arn = data.aws_acm_certificate.cert.arn
   client_cidr_block      = "10.100.0.0/16"
-  dns_servers = ["10.0.0.2"]
-  vpc_id = aws_vpc.vpc_cs2.id
-  split_tunnel = true
+  dns_servers            = ["10.0.0.2"]
+  vpc_id                 = aws_vpc.vpc_cs2.id
+  split_tunnel           = true
 
   authentication_options {
     type                       = "certificate-authentication"
@@ -291,7 +291,7 @@ resource "aws_ec2_client_vpn_endpoint" "vpnendpoint_cs2" {
   }
 
   connection_log_options {
-    enabled               = false
+    enabled = false
   }
 }
 
