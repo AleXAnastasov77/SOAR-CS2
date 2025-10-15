@@ -13,6 +13,12 @@ resource "aws_instance" "nat_gw_instance" {
   tags = {
     Name = "NAT Gateway"
   }
+  metadata_options {
+    http_tokens = "required"
+  }
+  root_block_device {
+    encrypted = true
+  }
 }
 
 
@@ -25,5 +31,11 @@ resource "aws_instance" "sample_endpoint" {
   subnet_id       = aws_subnet.public_cs2.id
   tags = {
     Name = "Sample Endpoint"
+  }
+  metadata_options {
+    http_tokens = "required"
+  }
+  root_block_device {
+    encrypted = true
   }
 }

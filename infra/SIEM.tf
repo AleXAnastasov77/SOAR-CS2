@@ -7,4 +7,10 @@ resource "aws_instance" "SIEM_instance" {
   tags = {
     Name = "SIEM Server"
   }
+  root_block_device {
+    encrypted = true
+  }
+  metadata_options {
+    http_tokens = "required"
+  }
 }

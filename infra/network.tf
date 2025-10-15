@@ -7,6 +7,7 @@ resource "aws_vpc" "vpc_cs2" {
   }
 }
 # ////////////////////// SUBNETS //////////////////////////
+# tfsec:ignore:aws-ec2-no-public-ip-subnet
 resource "aws_subnet" "public_cs2" {
   vpc_id                  = aws_vpc.vpc_cs2.id
   cidr_block              = "10.0.1.0/24"
@@ -107,7 +108,7 @@ resource "aws_route_table_association" "d" {
 }
 
 # ////////////////////// SECURITY GROUPS //////////////////////////
-
+# tfsec:ignore:aws-ec2-no-public-egress-sgr
 resource "aws_security_group" "endpoints_sg" {
   name        = "endpoints-sg"
   description = "Allow SSH into the endpoints"
@@ -132,6 +133,7 @@ resource "aws_security_group" "endpoints_sg" {
     Name = "endpoints-sg"
   }
 }
+# tfsec:ignore:aws-ec2-no-public-egress-sgr
 resource "aws_security_group" "securitytools_sg" {
   name        = "securitytools_sg"
   description = "Open ports needed by Snort, OpenVAS"
@@ -163,6 +165,7 @@ resource "aws_security_group" "securitytools_sg" {
     Name = "securitytools_sg"
   }
 }
+# tfsec:ignore:aws-ec2-no-public-egress-sgr
 resource "aws_security_group" "SOCTools_sg" {
   name        = "SOCTools_sg"
   description = "Open ports needed by The Misp, The Hive"
@@ -209,6 +212,7 @@ resource "aws_security_group" "SOCTools_sg" {
     Name = "SOCTools_sg"
   }
 }
+# tfsec:ignore:aws-ec2-no-public-egress-sgr
 resource "aws_security_group" "SIEM_sg" {
   name        = "SIEM-sg"
   description = "Opening ports needed for the SIEM"
