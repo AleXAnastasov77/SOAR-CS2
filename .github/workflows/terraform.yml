@@ -27,7 +27,7 @@ jobs:
       - name: Terraform Format Check
         working-directory: infra
         run: terraform fmt -check -recursive
-        
+
       - name: Install TFLint
         run: |
           curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
@@ -40,6 +40,7 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: infra
+          args: --minimum-severity HIGH
 
       - name: Run Gitleaks (Secrets Scan)
         uses: gitleaks/gitleaks-action@v2
