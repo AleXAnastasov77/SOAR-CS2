@@ -56,29 +56,9 @@ resource "aws_eip" "eip_natgw" {
     Name = "eip_natgw"
   }
 }
-data "aws_ami" "ubuntu" {
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["099720109477"] # Canonical
-}
-
-resource "aws_instance" "example" {
-  ami           = data.aws_ami.ubuntu.id
-  instance_type = "t3.micro"
-
-  tags = {
-    Name = "HelloWorld"
-  }
+resource "aws_eip_association" "eip_assoc" {
+  instance_id   = aws_instance.nat_gw_instance.id
+  allocation_id = aws_eip.eip_natgw.id
 }
 
 
@@ -98,10 +78,10 @@ resource "aws_route_table" "rt_public_cs2" {
 resource "aws_route_table" "rt_private_cs2" {
   vpc_id = aws_vpc.vpc_cs2.id
 
-#   route {
-#     cidr_block     = "0.0.0.0/0"
-#     nat_gateway_id = aws_nat_gateway.natgw_cs1.id
-#   }
+  route {
+    cidr_block = "0.0.0.0/0"
+     network_interface_id = aws_instance.nat_gw_instance.primary_network_interface_id
+  }
   tags = {
     Name = "rt_private_cs2"
   }
@@ -297,13 +277,6 @@ resource "aws_security_group" "SIEM_sg" {
 }
 
 # ////////////////////// VPN //////////////////////////
-
-
-data "aws_acm_certificate" "cert" {
-  domain   = "server.vpn.internal"
-  statuses = ["ISSUED"]
-}
-
 resource "aws_ec2_client_vpn_endpoint" "vpnendpoint_cs2" {
   description            = "VPN for monitoring access"
   server_certificate_arn = data.aws_acm_certificate.cert.arn
@@ -339,4 +312,14 @@ resource "aws_ec2_client_vpn_authorization_rule" "authorization_rule" {
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.vpnendpoint_cs2.id
   target_network_cidr    = aws_vpc.vpc_cs2.cidr_block
   authorize_all_groups   = true
+}
+
+# ////////////////////// Private DNS //////////////////////////
+resource "aws_route53_zone" "private" {
+  name = "innovatech.internal"
+
+  vpc {
+    vpc_id = aws_vpc.vpc_cs2.id
+  }
+
 }

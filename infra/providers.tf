@@ -6,7 +6,7 @@ terraform {
     }
   }
   backend "s3" {
-    bucket       = "tfstate-alex-cs1"
+    bucket       = "tfstate-alex-cs2"
     key          = "dev/terraform.tfstate"
     region       = "eu-central-1"
     encrypt      = true
