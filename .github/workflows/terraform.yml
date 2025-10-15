@@ -40,7 +40,8 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: infra
-          args: --minimum-severity HIGH
+          additional_args: --minimum-severity HIGH
+
 
       - name: Run Gitleaks (Secrets Scan)
         uses: gitleaks/gitleaks-action@v2
