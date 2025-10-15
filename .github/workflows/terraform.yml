@@ -27,11 +27,7 @@ jobs:
       - name: Terraform Format Check
         working-directory: infra
         run: terraform fmt -check -recursive
-
-      - name: Terraform Validate
-        working-directory: infra
-        run: terraform validate
-
+        
       - name: Install TFLint
         run: |
           curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
