@@ -199,7 +199,13 @@ resource "aws_security_group" "SOCTools_sg" {
     protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
-
+  ingress {
+    description = "Allow ICMP"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["10.0.0.0/8"]
+  }
 
   egress {
     from_port   = 0
@@ -217,7 +223,13 @@ resource "aws_security_group" "SIEM_sg" {
   name        = "SIEM-sg"
   description = "Opening ports needed for the SIEM"
   vpc_id      = aws_vpc.vpc_cs2.id
-
+  ingress {
+    description = "Allow ICMP"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["10.0.0.0/8"]
+  }
   ingress {
     description = "Allow SSH from VPC CIDR (VPN included)"
     from_port   = 22
