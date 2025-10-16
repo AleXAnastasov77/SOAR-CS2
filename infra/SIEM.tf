@@ -4,6 +4,7 @@ resource "aws_instance" "SIEM_instance" {
   vpc_security_group_ids = [aws_security_group.SIEM_sg.id]
   subnet_id              = aws_subnet.privateSIEM_cs2.id
   private_ip             = "10.0.10.10"
+  key_name               = "ansible-keypair"
   tags = {
     Name = "SIEM Server"
   }
