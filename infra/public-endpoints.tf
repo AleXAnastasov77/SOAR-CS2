@@ -1,5 +1,9 @@
 # ////////////////////// EC2 Gateway //////////////////////////
-
+resource "aws_network_interface" "nat_private" {
+  subnet_id       = aws_subnet.privateSIEM_cs2.id
+  private_ips     = ["10.0.10.5"]
+  security_groups = [aws_security_group.endpoints_sg.id]
+}
 resource "aws_instance" "nat_gw_instance" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
@@ -18,7 +22,11 @@ resource "aws_instance" "nat_gw_instance" {
     encrypted = true
   }
 }
-
+resource "aws_network_interface_attachment" "nia_nat_gw" {
+  instance_id          = aws_instance.nat_gw_instance.id
+  network_interface_id = aws_network_interface.nat_private.id
+  device_index         = 1
+}
 
 # ////////////////////// SAMPLE ENDPOINT //////////////////////////
 
