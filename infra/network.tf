@@ -330,3 +330,11 @@ resource "aws_route53_zone" "private" {
   }
 
 }
+
+resource "aws_route53_record" "SIEM" {
+  zone_id = aws_route53_zone.private.zone_id
+  name    = "siem.innovatech.internal"
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.SIEM_instance.private_ip]
+}
