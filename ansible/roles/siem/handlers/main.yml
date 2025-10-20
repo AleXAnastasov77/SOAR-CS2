@@ -2,7 +2,7 @@
 - name: Restart and reconfigure Elasticsearch
   become: yes
   listen: restart elasticsearch
-  block:
+  tasks:
     - name: Reload systemd daemon and ensure Elasticsearch is enabled and running
       systemd:
         name: elasticsearch
