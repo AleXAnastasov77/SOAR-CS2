@@ -28,6 +28,12 @@ source "amazon-ebs" "siem" {
     owners      = ["099720109477"]
     most_recent = true
   }
+  launch_block_device_mappings {
+    device_name           = "/dev/sda1"
+    volume_size           = 20
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
 }
 
 build {
