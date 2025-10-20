@@ -35,6 +35,7 @@ resource "aws_instance" "sample_endpoint" {
   instance_type          = "t3.micro"
   vpc_security_group_ids = [aws_security_group.endpoints_sg.id]
   subnet_id              = aws_subnet.public_cs2.id
+  private_ip             = "10.0.1.10"
   key_name               = "ansible-keypair"
   tags = {
     Name = "Sample Endpoint"

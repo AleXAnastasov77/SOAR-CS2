@@ -7,6 +7,6 @@ sysctl -p
 iptables -t nat -A POSTROUTING -s 10.0.0.0/16 -o ens5 -j MASQUERADE
 
 # Save iptables
-apt update -y
-apt install -y iptables-persistent
-netfilter-persistent save
+sudo apt update -y
+sudo apt install -y iptables-persistent
+sudo netfilter-persistent save
