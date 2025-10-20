@@ -1,0 +1,26 @@
+name: Build SOC-tools AMI
+on:
+  push:
+    paths:
+      - 'ansible/roles/soc-tools/**'
+      - 'packer/soc-tools.pkr.hcl'
+  workflow_dispatch:
+
+jobs:
+  packer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::057827529833:role/GitHubActionsPipeline
+          aws-region: eu-central-1
+          
+      - name: Build SOC-Tools AMI
+        run: |
+          cd packer
+          packer init soc-tools.pkr.hcl
+          packer build soc-tools.pkr.hcl

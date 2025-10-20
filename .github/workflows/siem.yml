@@ -1,0 +1,26 @@
+name: Build SIEM AMI
+on:
+  push:
+    paths:
+      - 'ansible/roles/siem/**'
+      - 'packer/siem.pkr.hcl'
+  workflow_dispatch:
+
+jobs:
+  packer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-packer@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::057827529833:role/GitHubActionsPipeline
+          aws-region: eu-central-1
+          
+      - name: Build SIEM AMI
+        run: |
+          cd packer
+          packer init siem.pkr.hcl
+          packer build siem.pkr.hcl
