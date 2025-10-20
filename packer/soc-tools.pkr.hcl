@@ -11,12 +11,12 @@ packer {
   }
 }
 
-variable "aws_region" { default = "eu-west-1" }
+variable "aws_region" { default = "eu-central-1" }
 
-source "amazon-ebs" "siem" {
+source "amazon-ebs" "soc-tools" {
   region                  = var.aws_region
   instance_type           = "t3.medium"
-  ami_name                = "soar-siem-{{timestamp}}"
+  ami_name                = "soar-soc-tools-{{timestamp}}"
   ssh_username            = "ubuntu"
 
   source_ami_filter {
@@ -37,8 +37,8 @@ source "amazon-ebs" "siem" {
 }
 
 build {
-  name    = "siem-image"
-  sources = ["source.amazon-ebs.siem"]
+  name    = "soc-tools-image"
+  sources = ["source.amazon-ebs.soc-tools"]
 
   provisioner "ansible" {
     playbook_file = "../ansible/main.yml"
@@ -46,8 +46,8 @@ build {
   }
 
   post-processor "shell-local" {
-    inline = [
-      "aws ssm put-parameter --name '/soar/ami/soc-tools' --type String --overwrite --value {{ .ArtifactId }}"
+  inline = [
+    "aws ssm put-parameter --name /soar/ami/soc-tools --type String --overwrite --value '{{ .ArtifactId }}'"
     ]
   }
 }

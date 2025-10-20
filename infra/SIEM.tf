@@ -1,5 +1,5 @@
 resource "aws_instance" "SIEM_instance" {
-  ami                    = data.aws_ami.ubuntu.id
+  ami                    = data.aws_ssm_parameter.siem_ami.value
   instance_type          = "t3.large"
   vpc_security_group_ids = [aws_security_group.SIEM_sg.id]
   subnet_id              = aws_subnet.privateSIEM_cs2.id

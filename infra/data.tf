@@ -22,3 +22,7 @@ data "aws_acm_certificate" "cert" {
   domain   = "server.vpn.internal"
   statuses = ["ISSUED"]
 }
+# SIEM AMI ID via Parameter Store
+data "aws_ssm_parameter" "siem_ami" {
+  name = "/soar/ami/siem"
+}

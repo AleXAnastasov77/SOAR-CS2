@@ -46,8 +46,8 @@ build {
   }
 
   post-processor "shell-local" {
-    inline = [
-      "aws ssm put-parameter --name '/soar/ami/siem' --type String --overwrite --value {{ .ArtifactId }}"
+  inline = [
+    "aws ssm put-parameter --name /soar/ami/siem --type String --overwrite --value '{{ .ArtifactId }}'"
     ]
   }
 }
