@@ -5,7 +5,9 @@ on:
       - 'ansible/roles/siem/**'
       - 'packer/siem.pkr.hcl'
   workflow_dispatch:
-
+permissions:
+  id-token: write
+  contents: read
 jobs:
   packer:
     runs-on: ubuntu-latest
@@ -18,7 +20,7 @@ jobs:
         with:
           role-to-assume: arn:aws:iam::057827529833:role/GitHubActionsPipeline
           aws-region: eu-central-1
-          
+
       - name: Build SIEM AMI
         run: |
           cd packer

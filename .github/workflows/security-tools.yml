@@ -5,7 +5,9 @@ on:
       - 'ansible/roles/security-tools/**'
       - 'packer/security-tools.pkr.hcl'
   workflow_dispatch:
-
+permissions:
+  id-token: write
+  contents: read
 jobs:
   packer:
     runs-on: ubuntu-latest
