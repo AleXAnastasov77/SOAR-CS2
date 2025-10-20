@@ -15,7 +15,7 @@ variable "aws_region" { default = "eu-central-1" }
 
 source "amazon-ebs" "siem" {
   region                  = var.aws_region
-  instance_type           = "t3.medium"
+  instance_type           = "t3.large"
   ami_name                = "soar-siem-{{timestamp}}"
   ssh_username            = "ubuntu"
 
