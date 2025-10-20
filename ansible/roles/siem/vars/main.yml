@@ -1,5 +1,6 @@
-elastic_version: "8.15.0"
-wazuh_version: "4.8.0"
+elastic_version: "9.1.5"
+wazuh_version: "4.13"
 kibana_port: 5601
 elastic_port: 9200
 wazuh_port: 55000
+filebeat_hosts: ["siem.innovatech.internal:9200"]

@@ -1,15 +1,67 @@
 ---
-- name: Restart Elasticsearch
-  service:
-    name: elasticsearch
-    state: restarted
+- name: Restart and reconfigure Elasticsearch
+  become: yes
+  listen: restart elasticsearch
+  block:
+    - name: Reload systemd daemon and ensure Elasticsearch is enabled and running
+      systemd:
+        name: elasticsearch
+        enabled: true
+        state: restarted
+        daemon_reload: yes
+
+    - name: Wait for Elasticsearch to start on port 9200
+      wait_for:
+        port: 9200
+        delay: 5
+        timeout: 60
+
+    - name: Check if elastic password already exported
+      stat:
+        path: /etc/environment
+      register: env_file
+
+    - name: Reset elastic user password (only if not already exported)
+      command: /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic --batch
+      register: reset_output
+      when: "'ELASTIC_PASSWORD' not in lookup('file', '/etc/environment', errors='ignore')"
+      changed_when: "'Password for the elastic user is:' in reset_output.stdout"
+
+    - name: Export elastic user password as environment variable (only if not already set)
+      lineinfile:
+        path: /etc/environment
+        regexp: "^ELASTIC_PASSWORD="
+        line: "ELASTIC_PASSWORD={{ reset_output.stdout | regex_search('Password for the elastic user is: (.*)', '\\1') }}"
+        create: yes
+      when: reset_output is defined and reset_output.stdout is search('Password for the elastic user is:')
 
 - name: Restart Kibana
-  service:
+  listen: restart kibana
+  systemd:
     name: kibana
+    enabled: true
     state: restarted
+    daemon_reload: yes
 
-- name: Restart Wazuh Manager
-  service:
-    name: wazuh-manager
+- name: Restart Logstash
+  listen: restart logstash
+  systemd:
+    name: logstash
+    enabled: true
     state: restarted
+    daemon_reload: yes
+
+- name: Restart Filebeat
+  listen: restart filebeat
+  systemd:
+    name: filebeat
+    enabled: true
+    state: restarted
+    daemon_reload: yes
+- name: Restart Wazuh Manager
+  listen: restart wazuh manager
+  systemd:
+    name: wazuh-manager
+    enabled: true
+    state: restarted
+    daemon_reload: yes
