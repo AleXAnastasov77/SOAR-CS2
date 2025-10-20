@@ -1,10 +1,11 @@
 ---
-- name: Update system
-  apt:
+# --- System Preparation ---
+- name: Update system package cache
+  ansible.builtin.apt:
     update_cache: yes
 
-- name: Install required packages
-  apt:
+- name: Install required system packages
+  ansible.builtin.apt:
     name:
       - apt-transport-https
       - curl
@@ -13,105 +14,111 @@
       - net-tools
       - lsb-release
     state: present
+    update_cache: yes
 
-# --- Elasticsearch ---
+# --- Elasticsearch / Kibana / Logstash ---
 - name: Add Elastic GPG key
-  shell: |
-    wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --dearmor -o /usr/share/keyrings/elasticsearch-keyring.gpg
+  ansible.builtin.apt_key:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    state: present
 
-- name: Download and install the Elastic, Kibana, Logstash Debian packages
-  shell: |
-    wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-{{elastic_version}}-amd64.deb
-    wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-{{elastic_version}}-amd64.deb.sha512
-    wget https://artifacts.elastic.co/downloads/kibana/kibana-{{elastic_version}}-amd64.deb
-    wget https://artifacts.elastic.co/downloads/logstash/logstash-{{elastic_version}}-amd64.deb
-    shasum -a 512 -c elasticsearch-{{elastic_version}}-amd64.deb.sha512
-    shasum -a 512 kibana-{{elastic_version}}-amd64.deb
-    sudo dpkg -i elasticsearch-{{elastic_version}}-amd64.deb
-    sudo dpkg -i kibana-{{elastic_version}}-amd64.deb
-    sudo dpkg -i logstash-{{elastic_version}}-amd64.deb
-  notify: Restart Logstash
+- name: Add Elastic repository
+  ansible.builtin.apt_repository:
+    repo: "deb https://artifacts.elastic.co/packages/{{ elastic_version | regex_replace('\\..*', '') }}.x/apt stable main"
+    state: present
 
-- name: Deploy Elasticsearch config
-  template:
+- name: Install Elastic Stack packages
+  ansible.builtin.apt:
+    name:
+      - elasticsearch
+      - kibana
+      - logstash
+    state: present
+  notify:
+    - restart elasticsearch
+    - restart kibana
+    - restart logstash
+
+- name: Deploy Elasticsearch configuration
+  ansible.builtin.template:
     src: elasticsearch.yml.j2
     dest: /etc/elasticsearch/elasticsearch.yml
-    mode: "0644"
+    owner: root
+    group: elasticsearch
+    mode: "0640"
   notify: restart elasticsearch
 
 - name: Enable automatic creation of system indices
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/elasticsearch/elasticsearch.yml
     line: "action.auto_create_index: .monitoring*,watches,triggered_watches,watcher-history*,ml*"
+    state: present
 
-
-- name: Deploy Kibana config
-  template:
+- name: Deploy Kibana configuration
+  ansible.builtin.template:
     src: kibana.yml.j2
     dest: /etc/kibana/kibana.yml
+    owner: root
+    group: kibana
     mode: "0644"
-  notify: Restart Kibana
+  notify: restart kibana
 
-# --- Wazuh ---
-# - name: Add Wazuh repository
-#   copy:
-#     src: wazuh.repo
-#     dest: /etc/apt/sources.list.d/wazuh.list
-
-# - name: Add Wazuh GPG key
-#   apt_key:
-#     url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
-#     state: present
-
-# - name: Install Wazuh Manager
-#   apt:
-#     name: wazuh-manager
-#     state: present
-
+# --- Wazuh Manager ---
 - name: Setup Wazuh Server
   block:
     - name: Add Wazuh APT key
       ansible.builtin.apt_key:
         url: https://packages.wazuh.com/key/GPG-KEY-WAZUH
         state: present
-    - name: Add Wazuh repo
+
+    - name: Add Wazuh repository
       ansible.builtin.apt_repository:
         repo: "deb https://packages.wazuh.com/4.x/apt/ stable main"
         state: present
 
-    - name: Update system
-      apt:
-        update_cache: yes
     - name: Install Wazuh Manager package
-      apt:
-        name:
-          - wazuh-manager
+      ansible.builtin.apt:
+        name: wazuh-manager
         state: present
-      notify: Restart Wazuh Manager
+        update_cache: yes
+      notify: restart wazuh manager
+
+# --- Filebeat (Wazuh integration) ---
 - name: Install Filebeat package
-  apt:
-    name:
-      - filebeat
+  ansible.builtin.apt:
+    name: filebeat
     state: present
-- name: Configure Filebeat
+
+- name: Configure Filebeat for Wazuh
   block:
-    - name: Deploy Filebeat config
-      template:
+    - name: Deploy Filebeat configuration
+      ansible.builtin.template:
         src: wazuh-filebeat.conf.j2
         dest: /etc/filebeat/filebeat.yml
+        owner: root
+        group: root
+        mode: "0644"
+      notify: restart filebeat
+
     - name: Create Filebeat keystore if not exists
-      command: filebeat keystore create
+      ansible.builtin.command: filebeat keystore create
       args:
         creates: /etc/filebeat/keystore
-    - name: Add the default username and password admin:admin to the secrets keystore
-      shell: |
+
+    - name: Add default credentials to Filebeat keystore
+      ansible.builtin.shell: |
         echo admin | filebeat keystore add username --stdin --force
         echo admin | filebeat keystore add password --stdin --force
-    - name: Download Alerts template for the Wazuh indexer
-      shell: |
-        curl -so /etc/filebeat/wazuh-template.json https://raw.githubusercontent.com/wazuh/wazuh/v4.13.1/extensions/elasticsearch/7.x/wazuh-template.json
-        chmod go+r /etc/filebeat/wazuh-template.json
-    - name: Install Wazuh Module for Filebeat
-      shell: |
-        curl -s https://packages.wazuh.com/4.x/filebeat/wazuh-filebeat-0.4.tar.gz | tar -xvz -C /usr/share/filebeat/module
-      notify: Restart Filebeat
+
+    - name: Download Wazuh alerts template
+      ansible.builtin.get_url:
+        url: https://raw.githubusercontent.com/wazuh/wazuh/v4.13.1/extensions/elasticsearch/7.x/wazuh-template.json
+        dest: /etc/filebeat/wazuh-template.json
+        mode: "0644"
+
+    - name: Install Wazuh Filebeat module
+      ansible.builtin.unarchive:
+        src: https://packages.wazuh.com/4.x/filebeat/wazuh-filebeat-0.4.tar.gz
+        dest: /usr/share/filebeat/module
+        remote_src: yes
+      notify: restart filebeat
