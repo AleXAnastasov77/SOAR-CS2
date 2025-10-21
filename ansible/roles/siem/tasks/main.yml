@@ -48,7 +48,7 @@
 - name: Enable automatic creation of system indices
   ansible.builtin.lineinfile:
     path: /etc/elasticsearch/elasticsearch.yml
-    line: "action.auto_create_index: *"
+    line: "action.auto_create_index: true"
     state: present
   notify: restart elasticsearch
 
@@ -121,3 +121,25 @@
         dest: /usr/share/filebeat/module
         remote_src: yes
       notify: restart filebeat
+
+- name: Wazuh plugin for Kibana
+  block:
+    # --- Prepare Kibana data directory ---
+  - name: Ensure Kibana data directory exists
+    ansible.builtin.file:
+      path: /usr/share/kibana/data
+      state: directory
+      owner: kibana
+      group: kibana
+      mode: '0755'
+
+  # --- Install Wazuh Kibana plugin ---
+  - name: Install Wazuh plugin for Kibana
+    ansible.builtin.shell: >
+      /usr/share/kibana/bin/kibana-plugin install https://packages.wazuh.com/4.x/ui/kibana/wazuh_kibana-4.2.5_7.14.0-1.zip
+    args:
+      chdir: /usr/share/kibana
+      creates: /usr/share/kibana/plugins/wazuh
+    register: wazuh_plugin_install
+    changed_when: "'Plugin installation was successful' in wazuh_plugin_install.stdout"
+    notify: restart kibana
