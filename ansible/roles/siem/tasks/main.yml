@@ -52,45 +52,6 @@
     state: present
   notify: restart elasticsearch
 
-# --- Generate Elasticsearch passwords automatically ---
-- name: Wait for Elasticsearch to start responding
-  uri:
-    url: "http://localhost:9200"
-    status_code: 200
-  register: es_status
-  retries: 10
-  delay: 10
-  until: es_status.status == 200
-  ignore_errors: yes
-
-- name: Reset elastic password
-  ansible.builtin.command: >
-    /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -b
-  register: elastic_password_reset
-  changed_when: "'New value' in elastic_password_reset.stdout"
-
-- name: Extract elastic password
-  ansible.builtin.set_fact:
-    elastic_password: "{{ elastic_password_reset.stdout | regex_search('New value for elastic password: (.*)', '\\1') | first }}"
-
-- name: Reset kibana_system password
-  ansible.builtin.command: >
-    /usr/share/elasticsearch/bin/elasticsearch-reset-password -u kibana_system -b
-  register: kibana_password_reset
-  changed_when: "'New value' in kibana_password_reset.stdout"
-
-- name: Extract kibana_system password
-  ansible.builtin.set_fact:
-    kibana_system_password: "{{ kibana_password_reset.stdout | regex_search('New value for kibana_system password: (.*)', '\\1') | first }}"
-
-- name: Save generated passwords
-  ansible.builtin.copy:
-    content: |
-      elastic_password={{ elastic_password }}
-      kibana_system_password={{ kibana_system_password }}
-    dest: /root/elastic_passwords.txt
-    mode: "0600"
-
 # --- Deploy Kibana configuration ---
 - name: Deploy Kibana configuration with generated password
   ansible.builtin.template:

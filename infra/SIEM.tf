@@ -16,4 +16,5 @@ resource "aws_instance" "SIEM_instance" {
   metadata_options {
     http_tokens = "required"
   }
+  user_data = file("siem.sh")
 }
