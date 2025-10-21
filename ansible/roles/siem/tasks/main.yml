@@ -32,7 +32,7 @@
     name:
       - "elasticsearch=7.14.0"
       - "kibana=7.14.0"
-      - "logstash=7.14.0"
+      - "logstash=1:7.14.0-1"
     state: present
   notify:
     - restart logstash
