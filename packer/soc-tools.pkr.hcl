@@ -45,9 +45,7 @@ build {
     extra_arguments = ["--tags", "soc-tools"]
   }
 
-  post-processor "shell-local" {
-  inline = [
-    "aws ssm put-parameter --name /soar/ami/soc-tools --type String --overwrite --value '{{ .ArtifactId }}'"
-    ]
+  post-processor "manifest" {
+    output = "manifest.json"
   }
 }

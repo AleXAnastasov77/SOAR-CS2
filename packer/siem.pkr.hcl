@@ -49,10 +49,7 @@ build {
   }
 
   # safer post-processor to store AMI ID in SSM Parameter Store
-  post-processor "shell-local" {
-    inline = [
-      "AMI_ID=$(echo '{{ .ArtifactId }}' | cut -d':' -f2)",
-      "aws ssm put-parameter --name /soar/ami/siem --type String --overwrite --value \"$AMI_ID\""
-    ]
+  post-processor "manifest" {
+    output = "manifest.json"
   }
 }

@@ -9,37 +9,6 @@
     state: stopped          # Stop during image build
     daemon_reload: yes
 
-# Optional: if you ever run this outside packer (e.g., in Terraform remote-exec), 
-# uncomment the wait and password reset tasks.
-
-# - name: Wait for Elasticsearch to start on port 9200
-#   listen: restart elasticsearch
-#   ansible.builtin.wait_for:
-#     port: 9200
-#     delay: 5
-#     timeout: 60
-
-# - name: Check if elastic password already exported
-#   listen: restart elasticsearch
-#   ansible.builtin.stat:
-#     path: /etc/environment
-#   register: env_file
-
-# - name: Reset elastic user password (only if not already exported)
-#   listen: restart elasticsearch
-#   ansible.builtin.command: /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic --batch
-#   register: reset_output
-#   when: "'ELASTIC_PASSWORD' not in lookup('file', '/etc/environment', errors='ignore')"
-#   changed_when: "'Password for the elastic user is:' in reset_output.stdout"
-
-# - name: Export elastic user password as environment variable (only if not already set)
-#   listen: restart elasticsearch
-#   ansible.builtin.lineinfile:
-#     path: /etc/environment
-#     regexp: "^ELASTIC_PASSWORD="
-#     line: "ELASTIC_PASSWORD={{ reset_output.stdout | regex_search('Password for the elastic user is: (.*)', '\\1') }}"
-#     create: yes
-#   when: reset_output is defined and reset_output.stdout is search('Password for the elastic user is:')
 
 # ===== KIBANA =====
 - name: Ensure Kibana systemd service is reloaded and enabled

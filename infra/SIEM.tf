@@ -9,7 +9,9 @@ resource "aws_instance" "SIEM_instance" {
     Name = "SIEM Server"
   }
   root_block_device {
-    encrypted = true
+    encrypted   = true
+    volume_size = 50
+    volume_type = "gp3"
   }
   metadata_options {
     http_tokens = "required"
