@@ -26,3 +26,18 @@ jobs:
           cd packer
           packer init soc-tools.pkr.hcl
           packer build soc-tools.pkr.hcl
+
+      - name: Extract AMI ID
+        id: ami
+        run: |
+          AMI_ID=$(jq -r '.builds[-1].artifact_id' ./packer/manifest.json | cut -d':' -f2)
+          echo "AMI_ID=$AMI_ID" >> $GITHUB_ENV
+          echo "Built AMI: $AMI_ID"
+
+      - name: Store AMI ID in SSM
+        run: |
+          aws ssm put-parameter \
+            --name "/soar/ami/soc-tools" \
+            --value "$AMI_ID" \
+            --type String \
+            --overwrite
