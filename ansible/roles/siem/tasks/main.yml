@@ -30,9 +30,9 @@
 - name: Install Elastic Stack packages
   ansible.builtin.apt:
     name:
-      - elasticsearch
-      - kibana
-      - logstash
+      - "elasticsearch=7.14.0"
+      - "kibana=7.14.0"
+      - "logstash=7.14.0"
     state: present
   notify:
     - restart logstash
@@ -125,21 +125,21 @@
 - name: Wazuh plugin for Kibana
   block:
     # --- Prepare Kibana data directory ---
-  - name: Ensure Kibana data directory exists
-    ansible.builtin.file:
-      path: /usr/share/kibana/data
-      state: directory
-      owner: kibana
-      group: kibana
-      mode: '0755'
+    - name: Ensure Kibana data directory exists
+      ansible.builtin.file:
+        path: /usr/share/kibana/data
+        state: directory
+        owner: kibana
+        group: kibana
+        mode: "0755"
 
-  # --- Install Wazuh Kibana plugin ---
-  - name: Install Wazuh plugin for Kibana
-    ansible.builtin.shell: >
-      /usr/share/kibana/bin/kibana-plugin install https://packages.wazuh.com/4.x/ui/kibana/wazuh_kibana-4.2.5_7.14.0-1.zip
-    args:
-      chdir: /usr/share/kibana
-      creates: /usr/share/kibana/plugins/wazuh
-    register: wazuh_plugin_install
-    changed_when: "'Plugin installation was successful' in wazuh_plugin_install.stdout"
-    notify: restart kibana
+    # --- Install Wazuh Kibana plugin ---
+    - name: Install Wazuh plugin for Kibana
+      ansible.builtin.shell: >
+        /usr/share/kibana/bin/kibana-plugin install https://packages.wazuh.com/4.x/ui/kibana/wazuh_kibana-4.2.5_7.14.0-1.zip
+      args:
+        chdir: /usr/share/kibana
+        creates: /usr/share/kibana/plugins/wazuh
+      register: wazuh_plugin_install
+      changed_when: "'Plugin installation was successful' in wazuh_plugin_install.stdout"
+      notify: restart kibana
