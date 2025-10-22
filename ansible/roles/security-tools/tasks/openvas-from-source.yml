@@ -87,6 +87,12 @@
       - yarn
     state: present
 
+- name: Create gvm system group
+  ansible.builtin.group:
+    name: gvm
+    system: yes
+    state: present
+
 - name: Add gvm system user and group
   ansible.builtin.user:
     name: gvm
