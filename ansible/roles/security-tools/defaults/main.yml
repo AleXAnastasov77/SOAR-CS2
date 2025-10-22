@@ -1,0 +1,18 @@
+---
+# Defaults (lowest precedence) — safe to override in vars or playbooks
+gvm_version: "22.4.0"
+install_prefix: "/usr/local"
+source_dir: "/opt/gvm/source"
+build_dir: "/opt/gvm/build"
+install_dir: "/opt/gvm/install"
+postgres_version: "14"
+gsad_listen_address: "0.0.0.0"
+gsad_listen_port: "9392"
+# If true, perform initial feed sync (can take long time)
+gvm_do_feed_sync: true
+# If true, create the GVM admin user
+gvm_create_admin: true
+# Whether to enable systemd services at the end (recommended true)
+gvm_enable_services: true
+# Whether to start services during provisioning only when necessary
+gvm_start_minimal: true

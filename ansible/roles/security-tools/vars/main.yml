@@ -1,0 +1,4 @@
+---
+# Project-level variables (you can override in playbook / Packer)
+gvm_admin_user: "admin"
+gvm_admin_password: "ChangeMe123!"

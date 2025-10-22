@@ -1,0 +1,376 @@
+---
+- name: Ensure build directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ source_dir }}"
+    - "{{ build_dir }}"
+    - "{{ install_dir }}"
+
+- name: Update apt cache and upgrade minimal
+  ansible.builtin.apt:
+    update_cache: yes
+    upgrade: dist
+
+- name: Install base dependencies for GVM build
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - cmake
+      - pkg-config
+      - gcc-mingw-w64
+      - libgnutls28-dev
+      - libxml2-dev
+      - libssh-gcrypt-dev
+      - libunistring-dev
+      - libldap2-dev
+      - libgcrypt20-dev
+      - libpcap-dev
+      - libglib2.0-dev
+      - libgpgme-dev
+      - libradcli-dev
+      - libjson-glib-dev
+      - libksba-dev
+      - libical-dev
+      - libpq-dev
+      - libsnmp-dev
+      - libpopt-dev
+      - libnet1-dev
+      - gnupg
+      - gnutls-bin
+      - libmicrohttpd-dev
+      - redis-server
+      - libhiredis-dev
+      - xsltproc
+      - nmap
+      - bison
+      - postgresql
+      - "postgresql-{{ postgres_version }}"
+      - "postgresql-server-dev-all"
+      - smbclient
+      - fakeroot
+      - wget
+      - heimdal-dev
+      - dpkg
+      - rsync
+      - zip
+      - rpm
+      - nsis
+      - socat
+      - libbsd-dev
+      - snmp
+      - uuid-dev
+      - curl
+      - gpgsm
+      - python3
+      - python3-pip
+      - python3-psutil
+      - python3-setuptools
+      - python3-packaging
+      - python3-redis
+      - python3-gnupg
+      - xmlstarlet
+      - texlive-fonts-recommended
+      - texlive-latex-extra
+      - perl-base
+      - xml-twig-tools
+      - libpaho-mqtt-dev
+      - python3-paho-mqtt
+      - mosquitto
+      - xmltoman
+      - doxygen
+      - nodejs
+      - yarn
+    state: present
+
+- name: Add gvm system user and group
+  ansible.builtin.user:
+    name: gvm
+    system: yes
+    group: gvm
+    shell: /usr/sbin/nologin
+    create_home: no
+
+- name: Add current ansible user to gvm group
+  ansible.builtin.user:
+    name: "{{ ansible_user | default(ansible_user_id) }}"
+    groups: gvm
+    append: yes
+
+- name: Import Greenbone Community signing key and ownertrust
+  ansible.builtin.shell: |
+    set -e
+    curl -fsSL https://www.greenbone.net/GBCommunitySigningKey.asc -o /tmp/GBCommunitySigningKey.asc
+    gpg --import /tmp/GBCommunitySigningKey.asc
+    echo "8AE4BE429B60A59B311C2E739823FAA60ED1E580:6:" > /tmp/ownertrust.txt
+    gpg --import-ownertrust < /tmp/ownertrust.txt
+  args:
+    executable: /bin/bash
+
+- name: Build and install GVM components from source (this can take a while)
+  ansible.builtin.shell: |
+    set -e
+    export PATH="$PATH:/usr/local/sbin"
+    export INSTALL_PREFIX="{{ install_prefix }}"
+    export SOURCE_DIR="{{ source_dir }}"
+    export BUILD_DIR="{{ build_dir }}"
+    export INSTALL_DIR="{{ install_dir }}"
+    export GVM_VERSION="{{ gvm_version }}"
+
+    # gvm-libs
+    curl -f -L https://github.com/greenbone/gvm-libs/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gvm-libs/releases/download/v${GVM_VERSION}/gvm-libs-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz
+    mkdir -p ${BUILD_DIR}/gvm-libs && cd ${BUILD_DIR}/gvm-libs
+    cmake ${SOURCE_DIR}/gvm-libs-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var
+    make DESTDIR=${INSTALL_DIR} install
+    cp -rv ${INSTALL_DIR}/* /
+    rm -rf ${INSTALL_DIR}/*
+
+    # gvmd
+    curl -f -L https://github.com/greenbone/gvmd/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gvmd/releases/download/v${GVM_VERSION}/gvmd-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz
+    mkdir -p ${BUILD_DIR}/gvmd && cd ${BUILD_DIR}/gvmd
+    cmake ${SOURCE_DIR}/gvmd-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DLOCALSTATEDIR=/var -DSYSCONFDIR=/etc -DGVM_DATA_DIR=/var -DOPENVAS_DEFAULT_SOCKET=/run/ospd/ospd-openvas.sock -DGVM_FEED_LOCK_PATH=/var/lib/gvm/feed-update.lock -DSYSTEMD_SERVICE_DIR=/lib/systemd/system -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql -DLOGROTATE_DIR=/etc/logrotate.d
+    make DESTDIR=${INSTALL_DIR} install
+    cp -rv ${INSTALL_DIR}/* /
+    rm -rf ${INSTALL_DIR}/*
+
+    # pg-gvm
+    curl -f -L https://github.com/greenbone/pg-gvm/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/pg-gvm/releases/download/v${GVM_VERSION}/pg-gvm-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz
+    mkdir -p ${BUILD_DIR}/pg-gvm && cd ${BUILD_DIR}/pg-gvm
+    cmake ${SOURCE_DIR}/pg-gvm-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql
+    make DESTDIR=${INSTALL_DIR} install
+    cp -rv ${INSTALL_DIR}/* /
+    rm -rf ${INSTALL_DIR}/*
+
+    # GSA (web UI)
+    curl -f -L https://github.com/greenbone/gsa/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gsa/releases/download/v${GVM_VERSION}/gsa-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz
+    cd ${SOURCE_DIR}/gsa-${GVM_VERSION}
+    rm -rf build
+    yarn && yarn build
+    mkdir -p {{ install_prefix }}/share/gvm/gsad/web/
+    cp -r build/* {{ install_prefix }}/share/gvm/gsad/web/
+
+    # GSAD
+    curl -f -L https://github.com/greenbone/gsad/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gsad/releases/download/v${GVM_VERSION}/gsad-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz
+    mkdir -p ${BUILD_DIR}/gsad && cd ${BUILD_DIR}/gsad
+    cmake ${SOURCE_DIR}/gsad-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DGVMD_RUN_DIR=/run/gvmd -DGSAD_RUN_DIR=/run/gsad -DLOGROTATE_DIR=/etc/logrotate.d
+    make DESTDIR={{ install_dir }} install
+    cp -rv {{ install_dir }}/* /
+    rm -rf {{ install_dir }}/*
+
+    # openvas-smb
+    curl -f -L https://github.com/greenbone/openvas-smb/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-smb/releases/download/v${GVM_VERSION}/openvas-smb-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz
+    mkdir -p ${BUILD_DIR}/openvas-smb && cd ${BUILD_DIR}/openvas-smb
+    cmake ${SOURCE_DIR}/openvas-smb-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release
+    make DESTDIR={{ install_dir }} install
+    cp -rv {{ install_dir }}/* /
+    rm -rf {{ install_dir }}/*
+
+    # openvas-scanner
+    curl -f -L https://github.com/greenbone/openvas-scanner/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-scanner/releases/download/v${GVM_VERSION}/openvas-scanner-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz
+    mkdir -p ${BUILD_DIR}/openvas-scanner && cd ${BUILD_DIR}/openvas-scanner
+    cmake ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DOPENVAS_FEED_LOCK_PATH=/var/lib/openvas/feed-update.lock -DOPENVAS_RUN_DIR=/run/ospd
+    make DESTDIR={{ install_dir }} install
+    cp -rv {{ install_dir }}/* /
+    rm -rf {{ install_dir }}/*
+
+    # ospd-openvas (python)
+    curl -f -L https://github.com/greenbone/ospd-openvas/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/ospd-openvas/releases/download/v${GVM_VERSION}/ospd-openvas-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz
+    cd ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}
+    python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
+
+    # notus-scanner (python)
+    curl -f -L https://github.com/greenbone/notus-scanner/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/notus-scanner/releases/download/v${GVM_VERSION}/notus-scanner-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
+    cd ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}
+    python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
+    python3 -m pip install tomli
+  args:
+    executable: /bin/bash
+  async: 7200
+  poll: 0
+
+- name: Ensure mosquitto is enabled and started (required by notus/ospd)
+  ansible.builtin.service:
+    name: mosquitto
+    enabled: true
+    state: started
+
+- name: Configure Redis for OpenVAS
+  ansible.builtin.shell: |
+    set -e
+    cp {{ source_dir }}/openvas-scanner-{{ gvm_version }}/config/redis-openvas.conf /etc/redis/redis-openvas.conf
+    chown redis:redis /etc/redis/redis-openvas.conf
+    mkdir -p /var/lib/notus /run/notus-scanner /run/gvmd
+    usermod -aG redis gvm
+    chown -R gvm:gvm /var/lib/gvm /var/lib/openvas /var/lib/notus /var/log/gvm /run/gvmd /run/notus-scanner || true
+    chmod -R g+srw /var/lib/gvm /var/lib/openvas /var/log/gvm || true
+    chown gvm:gvm {{ install_prefix }}/sbin/gvmd || true
+    chmod 6750 {{ install_prefix }}/sbin/gvmd || true
+  args:
+    executable: /bin/bash
+
+- name: Start and enable Redis openvas instance
+  ansible.builtin.service:
+    name: "redis-server@openvas.service"
+    enabled: true
+    state: started
+
+- name: Prepare OpenVAS GnuPG home and trust
+  ansible.builtin.shell: |
+    set -e
+    export GNUPGHOME=/tmp/openvas-gnupg
+    mkdir -p $GNUPGHOME
+    gpg --import /tmp/GBCommunitySigningKey.asc
+    echo "8AE4BE429B60A59B311C2E739823FAA60ED1E580:6:" > /tmp/ownertrust.txt
+    gpg --import-ownertrust < /tmp/ownertrust.txt
+    export OPENVAS_GNUPG_HOME=/etc/openvas/gnupg
+    mkdir -p $OPENVAS_GNUPG_HOME
+    cp -r /tmp/openvas-gnupg/* $OPENVAS_GNUPG_HOME/ || true
+    chown -R gvm:gvm $OPENVAS_GNUPG_HOME
+  args:
+    executable: /bin/bash
+
+- name: Deploy systemd unit for gvmd
+  ansible.builtin.template:
+    src: systemd/gvmd.service.j2
+    dest: /etc/systemd/system/gvmd.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: daemon-reload
+
+- name: Deploy systemd unit for gsad
+  ansible.builtin.template:
+    src: systemd/gsad.service.j2
+    dest: /etc/systemd/system/gsad.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: daemon-reload
+
+- name: Deploy systemd unit for ospd-openvas
+  ansible.builtin.template:
+    src: systemd/ospd-openvas.service.j2
+    dest: /etc/systemd/system/ospd-openvas.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: daemon-reload
+
+- name: Deploy systemd unit for notus-scanner
+  ansible.builtin.template:
+    src: systemd/notus-scanner.service.j2
+    dest: /etc/systemd/system/notus-scanner.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: daemon-reload
+
+- name: Enable services (do not force-start unless needed)
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: "{{ gvm_enable_services }}"
+  loop:
+    - notus-scanner
+    - ospd-openvas
+    - gvmd
+    - gsad
+
+- name: Ensure ospd-openvas is started (needed for gvmd init)
+  ansible.builtin.service:
+    name: ospd-openvas
+    state: started
+
+- name: Ensure gvmd is started for initial configuration
+  ansible.builtin.service:
+    name: gvmd
+    state: started
+
+- name: Ensure gsad is started for initial availability
+  ansible.builtin.service:
+    name: gsad
+    state: started
+
+- name: Initialize PostgreSQL service
+  ansible.builtin.service:
+    name: "postgresql@{{ postgres_version }}-main.service"
+    state: started
+    enabled: true
+  failed_when: false
+
+- name: Create PostgreSQL user and database for GVM
+  ansible.builtin.shell: |
+    set -e
+    sudo -u postgres createuser -DRS gvm || true
+    sudo -u postgres createdb -O gvm gvmd || true
+    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 -c "DO $$ BEGIN CREATE ROLE dba WITH SUPERUSER NOINHERIT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 -c "GRANT dba TO gvm;"
+    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
+    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";"
+  args:
+    executable: /bin/bash
+
+- name: Create GVM admin user (if enabled)
+  when: gvm_create_admin | bool
+  ansible.builtin.shell: |
+    set -e
+    ldconfig
+    {{ install_prefix }}/sbin/gvmd --create-user={{ gvm_admin_user }} --password={{ gvm_admin_password }} || true
+  args:
+    executable: /bin/bash
+
+- name: Sync NVT and feeds (can take long time)
+  when: gvm_do_feed_sync | bool
+  ansible.builtin.shell: |
+    set -e
+    sudo -u gvm {{ install_prefix }}/bin/greenbone-nvt-sync
+    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type GVMD_DATA
+    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type SCAP
+    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type CERT
+  args:
+    executable: /bin/bash
+  async: 7200
+  poll: 0
+
+- name: Generate GVM certificates
+  ansible.builtin.shell: |
+    sudo -u gvm {{ install_prefix }}/sbin/gvm-manage-certs -a
+  args:
+    executable: /bin/bash
+
+- name: Final status note
+  ansible.builtin.debug:
+    msg: >
+      OpenVAS/GVM {{ gvm_version }} installation from source has been configured.
+      Services enabled={{ gvm_enable_services }}, initial admin user created={{ gvm_create_admin }},
+      feed sync triggered={{ gvm_do_feed_sync }}. Access the UI at https://<host>:{{ gsad_listen_port }}/
