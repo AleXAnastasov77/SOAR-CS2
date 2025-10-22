@@ -42,7 +42,7 @@ build {
 
   provisioner "ansible" {
     playbook_file = "../ansible/main.yml"
-    extra_arguments = ["--tags", "security-tools"]
+    extra_arguments = ["--tags", "security"]
   }
 
   post-processor "manifest" {
