@@ -408,7 +408,7 @@
 - name: Deploy systemd unit for openvasd
   ansible.builtin.template:
     src: systemd/openvasd.service.j2
-    dest: /etc/systemd/system/oepnvasd.service
+    dest: /etc/systemd/system/openvasd.service
     owner: root
     group: root
     mode: "0644"
