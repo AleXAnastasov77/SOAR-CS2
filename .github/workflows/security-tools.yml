@@ -25,7 +25,7 @@ jobs:
         run: |
           cd packer
           packer init security-tools.pkr.hcl
-          packer build security-tools.pkr.hcl -debug -on-error=ask
+          packer build -debug -on-error=ask security-tools.pkr.hcl
 
       - name: Extract AMI ID
         id: ami
