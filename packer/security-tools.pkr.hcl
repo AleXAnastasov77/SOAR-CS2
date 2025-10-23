@@ -15,7 +15,7 @@ variable "aws_region" { default = "eu-central-1" }
 
 source "amazon-ebs" "security-tools" {
   region                  = var.aws_region
-  instance_type           = "t3.medium"
+  instance_type           = "t3.large"
   ami_name                = "soar-security-tools-{{timestamp}}"
   ssh_username            = "ubuntu"
 
@@ -30,7 +30,7 @@ source "amazon-ebs" "security-tools" {
   }
   launch_block_device_mappings {
     device_name           = "/dev/sda1"
-    volume_size           = 20
+    volume_size           = 60
     volume_type           = "gp3"
     delete_on_termination = true
   }

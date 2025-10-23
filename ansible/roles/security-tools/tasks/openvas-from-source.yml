@@ -238,8 +238,6 @@
 
   args:
     executable: /bin/bash
-  async: 7200
-  poll: 0
 
 - name: Ensure mosquitto is enabled and started (required by notus/ospd)
   ansible.builtin.service:
