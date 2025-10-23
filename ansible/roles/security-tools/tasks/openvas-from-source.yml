@@ -365,12 +365,6 @@
   async: 7200
   poll: 0
 
-- name: Generate GVM certificates
-  ansible.builtin.shell: |
-    sudo -u gvm {{ install_prefix }}/sbin/gvm-manage-certs -a
-  args:
-    executable: /bin/bash
-
 - name: Deploy systemd unit for gvmd
   ansible.builtin.template:
     src: systemd/gvmd.service.j2
