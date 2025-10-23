@@ -73,6 +73,12 @@
       - python3-packaging
       - python3-redis
       - python3-gnupg
+      - python3-paho-mqtt
+      - python3-wrapt
+      - python3-cffi
+      - python3-lxml
+      - python3-defusedxml
+      - python3-paramiko
       - xmlstarlet
       - texlive-fonts-recommended
       - texlive-latex-extra
@@ -211,6 +217,8 @@
     tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz
     cd ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}
     python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
+    cp -rv ${INSTALL_DIR}/* / || true
+    rm -rf ${INSTALL_DIR}/*
 
     # notus-scanner (python)
     curl -f -L https://github.com/greenbone/notus-scanner/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
@@ -219,7 +227,15 @@
     tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
     cd ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}
     python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
+    cp -rv ${INSTALL_DIR}/* / || true
+    rm -rf ${INSTALL_DIR}/*
     python3 -m pip install tomli
+
+    # gvm-tools (CLI utilities)
+    python3 -m pip install --prefix /usr --no-warn-script-location --no-dependencies gvm-tools
+    cp -rv ${INSTALL_DIR}/* / || true
+    rm -rf ${INSTALL_DIR}/*
+
   args:
     executable: /bin/bash
   async: 7200
@@ -236,12 +252,24 @@
     set -e
     cp {{ source_dir }}/openvas-scanner-{{ gvm_version }}/config/redis-openvas.conf /etc/redis/redis-openvas.conf
     chown redis:redis /etc/redis/redis-openvas.conf
+    echo "mqtt_server_uri = localhost:1883" | tee -a /etc/openvas/openvas.conf
+    echo "db_address = /run/redis-openvas/redis.sock" | sudo tee -a /etc/openvas/openvas.conf
     mkdir -p /var/lib/notus /run/notus-scanner /run/gvmd
     usermod -aG redis gvm
     chown -R gvm:gvm /var/lib/gvm /var/lib/openvas /var/lib/notus /var/log/gvm /run/gvmd /run/notus-scanner || true
     chmod -R g+srw /var/lib/gvm /var/lib/openvas /var/log/gvm || true
     chown gvm:gvm {{ install_prefix }}/sbin/gvmd || true
     chmod 6750 {{ install_prefix }}/sbin/gvmd || true
+  args:
+    executable: /bin/bash
+
+- name: Fix permissions for Greenbone sync scripts
+  ansible.builtin.shell: |
+    set -e
+    chown gvm:gvm /usr/local/bin/greenbone-nvt-sync || true
+    chmod 740 /usr/local/sbin/greenbone-feed-sync || true
+    chown gvm:gvm /usr/local/sbin/greenbone-*-sync || true
+    chmod 740 /usr/local/sbin/greenbone-*-sync || true
   args:
     executable: /bin/bash
 
@@ -263,6 +291,78 @@
     mkdir -p $OPENVAS_GNUPG_HOME
     cp -r /tmp/openvas-gnupg/* $OPENVAS_GNUPG_HOME/ || true
     chown -R gvm:gvm $OPENVAS_GNUPG_HOME
+  args:
+    executable: /bin/bash
+
+- name: Allow gvm group to run openvas without password
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    state: present
+    regexp: "^%gvm ALL"
+    line: "%gvm ALL = NOPASSWD: /usr/local/sbin/openvas"
+    validate: "visudo -cf %s"
+
+- name: Start PostgreSQL service
+  ansible.builtin.service:
+    name: "postgresql@{{ postgres_version }}-main.service"
+    state: started
+    enabled: true
+
+- name: Create PostgreSQL user and database for GVM
+  ansible.builtin.shell: |
+    set -e
+    sudo -u postgres createuser -DRS gvm || true
+    sudo -u postgres createdb -O gvm gvmd || true
+    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 <<'SQL'
+      DO $$ BEGIN
+        CREATE ROLE dba WITH SUPERUSER NOINHERIT;
+      EXCEPTION WHEN duplicate_object THEN NULL;
+      END $$;
+      GRANT dba TO gvm;
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+      CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+    SQL
+  args:
+    executable: /bin/bash
+
+- name: Create GVM admin user (if enabled)
+  when: gvm_create_admin | bool
+  ansible.builtin.shell: |
+    set -e
+    ldconfig
+    {{ install_prefix }}/sbin/gvmd --create-user={{ gvm_admin_user }} --password={{ gvm_admin_password }} || true
+  args:
+    executable: /bin/bash
+
+- name: Retrieve GVM admin user UUID
+  ansible.builtin.shell: |
+    gvmd --get-users --verbose | awk '/{{ gvm_admin_user }}/ {print $2}'
+  register: gvm_admin_uuid
+  changed_when: false
+
+- name: Apply admin UUID to gvmd setting
+  ansible.builtin.shell: |
+    gvmd --modify-setting 78eceaec-3385-11ea-b237-28d24461215b --value {{ gvm_admin_uuid.stdout }}
+  when: gvm_admin_uuid.stdout != ""
+  args:
+    executable: /bin/bash
+
+- name: Sync NVT and feeds (can take long time)
+  when: gvm_do_feed_sync | bool
+  ansible.builtin.shell: |
+    set -e
+    sudo -u gvm {{ install_prefix }}/bin/greenbone-nvt-sync
+    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type GVMD_DATA
+    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type SCAP
+    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type CERT
+  args:
+    executable: /bin/bash
+  async: 7200
+  poll: 0
+
+- name: Generate GVM certificates
+  ansible.builtin.shell: |
+    sudo -u gvm {{ install_prefix }}/sbin/gvm-manage-certs -a
   args:
     executable: /bin/bash
 
@@ -327,52 +427,6 @@
     name: gsad
     state: started
 
-- name: Initialize PostgreSQL service
-  ansible.builtin.service:
-    name: "postgresql@{{ postgres_version }}-main.service"
-    state: started
-    enabled: true
-  failed_when: false
-
-- name: Create PostgreSQL user and database for GVM
-  ansible.builtin.shell: |
-    set -e
-    sudo -u postgres createuser -DRS gvm || true
-    sudo -u postgres createdb -O gvm gvmd || true
-    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 -c "DO $$ BEGIN CREATE ROLE dba WITH SUPERUSER NOINHERIT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
-    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 -c "GRANT dba TO gvm;"
-    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";"
-    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS \"pgcrypto\";"
-  args:
-    executable: /bin/bash
-
-- name: Create GVM admin user (if enabled)
-  when: gvm_create_admin | bool
-  ansible.builtin.shell: |
-    set -e
-    ldconfig
-    {{ install_prefix }}/sbin/gvmd --create-user={{ gvm_admin_user }} --password={{ gvm_admin_password }} || true
-  args:
-    executable: /bin/bash
-
-- name: Sync NVT and feeds (can take long time)
-  when: gvm_do_feed_sync | bool
-  ansible.builtin.shell: |
-    set -e
-    sudo -u gvm {{ install_prefix }}/bin/greenbone-nvt-sync
-    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type GVMD_DATA
-    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type SCAP
-    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type CERT
-  args:
-    executable: /bin/bash
-  async: 7200
-  poll: 0
-
-- name: Generate GVM certificates
-  ansible.builtin.shell: |
-    sudo -u gvm {{ install_prefix }}/sbin/gvm-manage-certs -a
-  args:
-    executable: /bin/bash
 
 - name: Final status note
   ansible.builtin.debug:
