@@ -1,6 +1,8 @@
 ---
 # Defaults (lowest precedence) — safe to override in vars or playbooks
+gvmd_version: "26.0.0"
 gvm_version: "22.4.0"
+gvm_libs_version: "22.22.0"
 install_prefix: "/usr/local"
 source_dir: "/opt/gvm/source"
 build_dir: "/opt/gvm/build"

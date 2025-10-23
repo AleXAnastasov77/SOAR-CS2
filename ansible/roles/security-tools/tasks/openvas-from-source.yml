@@ -130,91 +130,99 @@
     export SOURCE_DIR="{{ source_dir }}"
     export BUILD_DIR="{{ build_dir }}"
     export INSTALL_DIR="{{ install_dir }}"
+    export GVMD_VERSION="{{ gvmd_version }}"
     export GVM_VERSION="{{ gvm_version }}"
+    export GVM_LIBS_VERSION="{{ gvm_libs_version }}"
+    export PG_GVM_VERSION=22.6.9
+    export GSA_VERSION=25.0.0
+    export GSAD_VERSION=24.3.0
+    export OPENVAS_SMB_VERSION=22.5.3
+    export OPENVAS_SCANNER_VERSION=23.20.1
+    export OSPD_OPENVAS_VERSION=22.9.0
 
     # gvm-libs
-    curl -f -L https://github.com/greenbone/gvm-libs/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/gvm-libs/releases/download/v${GVM_VERSION}/gvm-libs-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gvm-libs-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gvm-libs/archive/refs/tags/v${GVM_LIBS_VERSION}.tar.gz -o ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gvm-libs/releases/download/v${GVM_LIBS_VERSION}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz.asc ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz
     mkdir -p ${BUILD_DIR}/gvm-libs && cd ${BUILD_DIR}/gvm-libs
-    cmake ${SOURCE_DIR}/gvm-libs-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var
+    cmake ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var
     make DESTDIR=${INSTALL_DIR} install
     rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
     # gvmd
-    curl -f -L https://github.com/greenbone/gvmd/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/gvmd/releases/download/v${GVM_VERSION}/gvmd-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gvmd-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gvmd/archive/refs/tags/v${GVMD_VERSION}.tar.gz -o ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gvmd/releases/download/v${GVMD_VERSION}/gvmd-${GVMD_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz.asc ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz
     mkdir -p ${BUILD_DIR}/gvmd && cd ${BUILD_DIR}/gvmd
-    cmake ${SOURCE_DIR}/gvmd-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DLOCALSTATEDIR=/var -DSYSCONFDIR=/etc -DGVM_DATA_DIR=/var -DOPENVAS_DEFAULT_SOCKET=/run/ospd/ospd-openvas.sock -DGVM_FEED_LOCK_PATH=/var/lib/gvm/feed-update.lock -DSYSTEMD_SERVICE_DIR=/lib/systemd/system -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql -DLOGROTATE_DIR=/etc/logrotate.d
+    cmake ${SOURCE_DIR}/gvmd-${GVMD_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DLOCALSTATEDIR=/var -DSYSCONFDIR=/etc -DGVM_DATA_DIR=/var -DOPENVAS_DEFAULT_SOCKET=/run/ospd/ospd-openvas.sock -DGVM_FEED_LOCK_PATH=/var/lib/gvm/feed-update.lock -DSYSTEMD_SERVICE_DIR=/lib/systemd/system -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql -DLOGROTATE_DIR=/etc/logrotate.d
     make DESTDIR=${INSTALL_DIR} install
     rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
     # pg-gvm
-    curl -f -L https://github.com/greenbone/pg-gvm/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/pg-gvm/releases/download/v${GVM_VERSION}/pg-gvm-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/pg-gvm-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/pg-gvm/archive/refs/tags/v${PG_GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/pg-gvm/releases/download/v${PG_GVM_VERSION}/pg-gvm-${PG_GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz
     mkdir -p ${BUILD_DIR}/pg-gvm && cd ${BUILD_DIR}/pg-gvm
-    cmake ${SOURCE_DIR}/pg-gvm-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql
+    cmake ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql
     make DESTDIR=${INSTALL_DIR} install
     rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
     # GSA (web UI)
-    curl -f -L https://github.com/greenbone/gsa/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/gsa/releases/download/v${GVM_VERSION}/gsa-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gsa-${GVM_VERSION}.tar.gz
-    cd ${SOURCE_DIR}/gsa-${GVM_VERSION}
+    curl -f -L https://github.com/greenbone/gsa/archive/refs/tags/v${GSA_VERSION}.tar.gz -o ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gsa/releases/download/v${GSA_VERSION}/gsa-${GSA_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz.asc ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz
+    cd ${SOURCE_DIR}/gsa-${GSA_VERSION}
     rm -rf build
     yarn && yarn build
     mkdir -p {{ install_prefix }}/share/gvm/gsad/web/
     cp -r build/* {{ install_prefix }}/share/gvm/gsad/web/
 
     # GSAD
-    curl -f -L https://github.com/greenbone/gsad/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/gsad/releases/download/v${GVM_VERSION}/gsad-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gsad-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gsad/archive/refs/tags/v${GSAD_VERSION}.tar.gz -o ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/gsad/releases/download/v${GSAD_VERSION}/gsad-${GSAD_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz.asc ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz
     mkdir -p ${BUILD_DIR}/gsad && cd ${BUILD_DIR}/gsad
-    cmake ${SOURCE_DIR}/gsad-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DGVMD_RUN_DIR=/run/gvmd -DGSAD_RUN_DIR=/run/gsad -DLOGROTATE_DIR=/etc/logrotate.d
+    cmake ${SOURCE_DIR}/gsad-${GSAD_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DGVMD_RUN_DIR=/run/gvmd -DGSAD_RUN_DIR=/run/gsad -DLOGROTATE_DIR=/etc/logrotate.d
     make DESTDIR={{ install_dir }} install
     rsync -a ${INSTALL_DIR}/ / || true
     rm -rf {{ install_dir }}/*
 
     # openvas-smb
-    curl -f -L https://github.com/greenbone/openvas-smb/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/openvas-smb/releases/download/v${GVM_VERSION}/openvas-smb-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-smb-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-smb/archive/refs/tags/v${OPENVAS_SMB_VERSION}.tar.gz -o ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-smb/releases/download/v${OPENVAS_SMB_VERSION}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz.asc ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz
     mkdir -p ${BUILD_DIR}/openvas-smb && cd ${BUILD_DIR}/openvas-smb
-    cmake ${SOURCE_DIR}/openvas-smb-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release
+    cmake ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release
     make DESTDIR={{ install_dir }} install
     rsync -a ${INSTALL_DIR}/ / || true
     rm -rf {{ install_dir }}/*
 
     # openvas-scanner
-    curl -f -L https://github.com/greenbone/openvas-scanner/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/openvas-scanner/releases/download/v${GVM_VERSION}/openvas-scanner-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-scanner/archive/refs/tags/v${OPENVAS_SCANNER_VERSION}.tar.gz -o ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-scanner/releases/download/v${OPENVAS_SCANNER_VERSION}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz.asc ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz
     mkdir -p ${BUILD_DIR}/openvas-scanner && cd ${BUILD_DIR}/openvas-scanner
-    cmake ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DOPENVAS_FEED_LOCK_PATH=/var/lib/openvas/feed-update.lock -DOPENVAS_RUN_DIR=/run/ospd
+    cmake ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DOPENVAS_FEED_LOCK_PATH=/var/lib/openvas/feed-update.lock -DOPENVAS_RUN_DIR=/run/ospd
     make DESTDIR={{ install_dir }} install
     rsync -a ${INSTALL_DIR}/ / || true
     rm -rf {{ install_dir }}/*
 
     # ospd-openvas (python)
-    curl -f -L https://github.com/greenbone/ospd-openvas/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/ospd-openvas/releases/download/v${GVM_VERSION}/ospd-openvas-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz
-    cd ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}
+    curl -f -L https://github.com/greenbone/ospd-openvas/archive/refs/tags/v${OSPD_OPENVAS_VERSION}.tar.gz -o ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz
+    curl -f -L https://github.com/greenbone/ospd-openvas/releases/download/v${OSPD_OPENVAS_VERSION}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz.asc ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz
+    cd ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}
     python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
     rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
@@ -246,8 +254,8 @@
 
 - name: Configure Redis for OpenVAS
   ansible.builtin.shell: |
-    
-    cp {{ source_dir }}/openvas-scanner-{{ gvm_version }}/config/redis-openvas.conf /etc/redis/redis-openvas.conf
+
+    cp {{ source_dir }}/openvas-scanner-{{ OPENVAS_SCANNER_VERSION }}/config/redis-openvas.conf /etc/redis/redis-openvas.conf
     chown redis:redis /etc/redis/redis-openvas.conf
     echo "mqtt_server_uri = localhost:1883" | tee -a /etc/openvas/openvas.conf
     echo "db_address = /run/redis-openvas/redis.sock" | sudo tee -a /etc/openvas/openvas.conf
@@ -262,7 +270,7 @@
 
 - name: Fix permissions for Greenbone sync scripts
   ansible.builtin.shell: |
-    
+
     chown gvm:gvm /usr/local/bin/greenbone-nvt-sync || true
     chmod 740 /usr/local/sbin/greenbone-feed-sync || true
     chown gvm:gvm /usr/local/sbin/greenbone-*-sync || true
@@ -278,7 +286,7 @@
 
 - name: Prepare OpenVAS GnuPG home and trust
   ansible.builtin.shell: |
-    
+
     export GNUPGHOME=/tmp/openvas-gnupg
     mkdir -p $GNUPGHOME
     gpg --import /tmp/GBCommunitySigningKey.asc
@@ -307,7 +315,7 @@
 
 - name: Create PostgreSQL user and database for GVM
   ansible.builtin.shell: |
-    
+
     sudo -u postgres createuser -DRS gvm || true
     sudo -u postgres createdb -O gvm gvmd || true
     sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 <<'SQL'
@@ -325,7 +333,7 @@
 - name: Create GVM admin user (if enabled)
   when: gvm_create_admin | bool
   ansible.builtin.shell: |
-    
+
     ldconfig
     {{ install_prefix }}/sbin/gvmd --create-user={{ gvm_admin_user }} --password={{ gvm_admin_password }} || true
   args:
@@ -347,7 +355,7 @@
 - name: Sync NVT and feeds (can take long time)
   when: gvm_do_feed_sync | bool
   ansible.builtin.shell: |
-    
+
     sudo -u gvm {{ install_prefix }}/bin/greenbone-nvt-sync
     sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type GVMD_DATA
     sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type SCAP
@@ -424,10 +432,9 @@
     name: gsad
     state: started
 
-
 - name: Final status note
   ansible.builtin.debug:
     msg: >
-      OpenVAS/GVM {{ gvm_version }} installation from source has been configured.
+      OpenVAS/GVM installation from source has been configured.
       Services enabled={{ gvm_enable_services }}, initial admin user created={{ gvm_create_admin }},
       feed sync triggered={{ gvm_do_feed_sync }}. Access the UI at https://<host>:{{ gsad_listen_port }}/
