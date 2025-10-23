@@ -254,7 +254,7 @@
 
 - name: Configure Redis for OpenVAS
   ansible.builtin.shell: |
-
+    export OPENVAS_SCANNER_VERSION=23.20.1
     cp {{ source_dir }}/openvas-scanner-{{ OPENVAS_SCANNER_VERSION }}/config/redis-openvas.conf /etc/redis/redis-openvas.conf
     chown redis:redis /etc/redis/redis-openvas.conf
     echo "mqtt_server_uri = localhost:1883" | tee -a /etc/openvas/openvas.conf
