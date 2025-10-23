@@ -19,78 +19,83 @@
 - name: Install base dependencies for GVM build
   ansible.builtin.apt:
     name:
+       # --- System & build tools ---
       - build-essential
       - cmake
       - pkg-config
-      - gcc-mingw-w64
-      - libgnutls28-dev
-      - libxml2-dev
-      - libssh-gcrypt-dev
-      - libunistring-dev
-      - libldap2-dev
-      - libgcrypt20-dev
-      - libpcap-dev
+      - gcc
+      - g++
+      - make
+      - bison
+      - flex
+      - nasm
+      - git
+      - curl
+      - wget
+      - sudo
+      - gpg
+      - gpgsm
+      - gpg-agent
+      - openssh-client
+
+      # --- Core libraries for C/C++ components ---
       - libglib2.0-dev
       - libgpgme-dev
-      - libradcli-dev
-      - libjson-glib-dev
-      - libksba-dev
-      - libical-dev
-      - libpq-dev
-      - libsnmp-dev
-      - libpopt-dev
+      - libgnutls28-dev
+      - libssh-gcrypt-dev
+      - libgcrypt-dev
+      - libpcap-dev
       - libnet1-dev
-      - gnupg
-      - gnutls-bin
-      - libmicrohttpd-dev
-      - redis-server
+      - libxml2-dev
+      - libxslt1-dev
+      - libsqlite3-dev
+      - libpq-dev
+      - libpaho-mqtt-dev
+      - libcjson-dev
       - libhiredis-dev
-      - xsltproc
-      - nmap
-      - bison
-      - postgresql
-      - "postgresql-{{ postgres_version }}"
-      - "postgresql-server-dev-all"
-      - smbclient
-      - fakeroot
-      - wget
-      - heimdal-dev
-      - dpkg
-      - rsync
-      - zip
-      - rpm
-      - nsis
-      - socat
+      - libldap2-dev
+      - libical-dev
+      - libmicrohttpd-dev
       - libbsd-dev
-      - snmp
+      - libatomic1
       - uuid-dev
-      - curl
-      - gpgsm
+
+      # --- Python and related modules ---
       - python3
       - python3-pip
-      - python3-psutil
       - python3-setuptools
       - python3-packaging
-      - python3-redis
-      - python3-gnupg
-      - python3-paho-mqtt
-      - python3-wrapt
       - python3-cffi
       - python3-lxml
       - python3-defusedxml
       - python3-paramiko
-      - xmlstarlet
-      - texlive-fonts-recommended
-      - texlive-latex-extra
-      - perl-base
-      - xml-twig-tools
-      - libpaho-mqtt-dev
+      - python3-psutil
+      - python3-redis
+      - python3-gnupg
       - python3-paho-mqtt
-      - mosquitto
-      - xmltoman
-      - doxygen
+      - python3-wrapt
+      - python3-gvm
+
+      # --- Web UI / Frontend tools ---
       - nodejs
-      - yarn
+      - yarnpkg
+
+      # --- Database & messaging ---
+      - postgresql
+      - postgresql-server-dev-14
+      - redis-server
+      - mosquitto
+
+      # --- Misc runtime utils ---
+      - rsync
+      - logrotate
+      - xmlstarlet
+      - texlive-latex-base
+      - xsltproc
+      - graphviz
+      - smbclient
+      - rpm
+      - fakeroot
     state: present
 
 - name: Create gvm system group
