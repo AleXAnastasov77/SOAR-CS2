@@ -20,6 +20,7 @@
   ansible.builtin.apt:
     name:
       - build-essential
+      - libssl-dev
       - cmake
       - pkg-config
       - gcc-mingw-w64
@@ -139,6 +140,7 @@
     export OPENVAS_SMB_VERSION=22.5.3
     export OPENVAS_SCANNER_VERSION=23.20.1
     export OSPD_OPENVAS_VERSION=22.9.0
+    export OPENVAS_DAEMON=23.20.0
 
     # gvm-libs
     curl -f -L https://github.com/greenbone/gvm-libs/archive/refs/tags/v${GVM_LIBS_VERSION}.tar.gz -o ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz
@@ -227,16 +229,27 @@
     rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
-    # notus-scanner (python)
-    curl -f -L https://github.com/greenbone/notus-scanner/archive/refs/tags/v${GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/notus-scanner/releases/download/v${GVM_VERSION}/notus-scanner-${GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
-    cd ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}
-    python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf ${INSTALL_DIR}/*
-    python3 -m pip install tomli
+    # openvasd
+    curl https://sh.rustup.rs -sSf | sh -s -- -y
+    source $HOME/.cargo/env
+    rustup update stable
+
+    # --- Download and verify OpenVAS Scanner sources ---
+    curl -f -L https://github.com/greenbone/openvas-scanner/archive/refs/tags/v${OPENVAS_DAEMON}.tar.gz \
+      -o ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-scanner/releases/download/v${OPENVAS_DAEMON}/openvas-scanner-v${OPENVAS_DAEMON}.tar.gz.asc \
+      -o ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz.asc
+    gpg --verify ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz.asc ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz
+    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz
+    mkdir -p ${INSTALL_DIR}/openvasd/usr/local/bin
+    cd ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}/rust/src/openvasd
+    cargo build --release
+    cd ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}/rust/src/scannerctl
+    cargo build --release
+    cp -v ../../target/release/openvasd ${INSTALL_DIR}/openvasd/usr/local/bin/
+    cp -v ../../target/release/scannerctl ${INSTALL_DIR}/openvasd/usr/local/bin/
+    rsync -a ${INSTALL_DIR}/openvasd/ /usr/local/bin/ || true
+    rm -rf ${INSTALL_DIR}/openvasd/*
 
     # gvm-tools (CLI utilities)
     python3 -m pip install --prefix /usr --no-warn-script-location --no-dependencies gvm-tools
@@ -246,11 +259,11 @@
   args:
     executable: /bin/bash
 
-- name: Ensure mosquitto is enabled and started (required by notus/ospd)
-  ansible.builtin.service:
-    name: mosquitto
-    enabled: true
-    state: started
+# - name: Ensure mosquitto is enabled and started (required by notus/ospd)
+#   ansible.builtin.service:
+#     name: mosquitto
+#     enabled: true
+#     state: started
 
 - name: Configure Redis for OpenVAS
   ansible.builtin.shell: |
@@ -392,10 +405,10 @@
     mode: "0644"
   notify: daemon-reload
 
-- name: Deploy systemd unit for notus-scanner
+- name: Deploy systemd unit for openvasd
   ansible.builtin.template:
-    src: systemd/notus-scanner.service.j2
-    dest: /etc/systemd/system/notus-scanner.service
+    src: systemd/openvasd.service.j2
+    dest: /etc/systemd/system/oepnvasd.service
     owner: root
     group: root
     mode: "0644"
@@ -406,7 +419,7 @@
     name: "{{ item }}"
     enabled: "{{ gvm_enable_services }}"
   loop:
-    - notus-scanner
+    - openvasd
     - ospd-openvas
     - gvmd
     - gsad

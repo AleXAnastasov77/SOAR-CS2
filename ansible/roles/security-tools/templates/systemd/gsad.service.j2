@@ -5,13 +5,13 @@ After=network.target gvmd.service
 Wants=gvmd.service
 
 [Service]
-Type=forking
+Type=exec
 User=gvm
 Group=gvm
 RuntimeDirectory=gsad
 RuntimeDirectoryMode=2775
 PIDFile=/run/gsad/gsad.pid
-ExecStart={{ install_prefix }}/sbin/gsad --listen={{ gsad_listen_address }} --port={{ gsad_listen_port }} --no-redirect
+ExecStart=/usr/local/sbin/gsad --foreground --listen=127.0.0.1 --port=9392 --http-only
 Restart=always
 TimeoutStopSec=10
 
