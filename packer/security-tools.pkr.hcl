@@ -43,6 +43,11 @@ build {
   provisioner "ansible" {
     playbook_file = "../ansible/main.yml"
     extra_arguments = ["--tags", "security"]
+    ansible_env_vars = [
+    "ANSIBLE_ROLES_PATH=../ansible/roles",
+    "ANSIBLE_REMOTE_TEMP=/tmp/.ansible/tmp",
+    "ANSIBLE_CONFIG=../ansible/ansible.cfg"
+    ]
   }
 
   post-processor "manifest" {
