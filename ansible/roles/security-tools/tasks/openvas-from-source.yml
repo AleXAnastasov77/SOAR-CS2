@@ -141,7 +141,7 @@
     mkdir -p ${BUILD_DIR}/gvm-libs && cd ${BUILD_DIR}/gvm-libs
     cmake ${SOURCE_DIR}/gvm-libs-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var
     make DESTDIR=${INSTALL_DIR} install
-    cp -rv ${INSTALL_DIR}/* /
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
     # gvmd
@@ -152,7 +152,7 @@
     mkdir -p ${BUILD_DIR}/gvmd && cd ${BUILD_DIR}/gvmd
     cmake ${SOURCE_DIR}/gvmd-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DLOCALSTATEDIR=/var -DSYSCONFDIR=/etc -DGVM_DATA_DIR=/var -DOPENVAS_DEFAULT_SOCKET=/run/ospd/ospd-openvas.sock -DGVM_FEED_LOCK_PATH=/var/lib/gvm/feed-update.lock -DSYSTEMD_SERVICE_DIR=/lib/systemd/system -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql -DLOGROTATE_DIR=/etc/logrotate.d
     make DESTDIR=${INSTALL_DIR} install
-    cp -rv ${INSTALL_DIR}/* /
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
     # pg-gvm
@@ -163,7 +163,7 @@
     mkdir -p ${BUILD_DIR}/pg-gvm && cd ${BUILD_DIR}/pg-gvm
     cmake ${SOURCE_DIR}/pg-gvm-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql
     make DESTDIR=${INSTALL_DIR} install
-    cp -rv ${INSTALL_DIR}/* /
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
     # GSA (web UI)
@@ -185,7 +185,7 @@
     mkdir -p ${BUILD_DIR}/gsad && cd ${BUILD_DIR}/gsad
     cmake ${SOURCE_DIR}/gsad-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DGVMD_RUN_DIR=/run/gvmd -DGSAD_RUN_DIR=/run/gsad -DLOGROTATE_DIR=/etc/logrotate.d
     make DESTDIR={{ install_dir }} install
-    cp -rv {{ install_dir }}/* /
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf {{ install_dir }}/*
 
     # openvas-smb
@@ -196,7 +196,7 @@
     mkdir -p ${BUILD_DIR}/openvas-smb && cd ${BUILD_DIR}/openvas-smb
     cmake ${SOURCE_DIR}/openvas-smb-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release
     make DESTDIR={{ install_dir }} install
-    cp -rv {{ install_dir }}/* /
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf {{ install_dir }}/*
 
     # openvas-scanner
@@ -207,7 +207,7 @@
     mkdir -p ${BUILD_DIR}/openvas-scanner && cd ${BUILD_DIR}/openvas-scanner
     cmake ${SOURCE_DIR}/openvas-scanner-${GVM_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DOPENVAS_FEED_LOCK_PATH=/var/lib/openvas/feed-update.lock -DOPENVAS_RUN_DIR=/run/ospd
     make DESTDIR={{ install_dir }} install
-    cp -rv {{ install_dir }}/* /
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf {{ install_dir }}/*
 
     # ospd-openvas (python)
@@ -217,7 +217,7 @@
     tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}.tar.gz
     cd ${SOURCE_DIR}/ospd-openvas-${GVM_VERSION}
     python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
-    cp -rv ${INSTALL_DIR}/* / || true
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
     # notus-scanner (python)
@@ -227,13 +227,13 @@
     tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}.tar.gz
     cd ${SOURCE_DIR}/notus-scanner-${GVM_VERSION}
     python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
-    cp -rv ${INSTALL_DIR}/* / || true
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
     python3 -m pip install tomli
 
     # gvm-tools (CLI utilities)
     python3 -m pip install --prefix /usr --no-warn-script-location --no-dependencies gvm-tools
-    cp -rv ${INSTALL_DIR}/* / || true
+    rsync -a ${INSTALL_DIR}/ / || true
     rm -rf ${INSTALL_DIR}/*
 
   args:
