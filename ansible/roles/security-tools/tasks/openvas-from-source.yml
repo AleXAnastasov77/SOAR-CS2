@@ -120,7 +120,6 @@
 
 - name: Import Greenbone Community signing key and ownertrust
   ansible.builtin.shell: |
-    set -e
     curl -fsSL https://www.greenbone.net/GBCommunitySigningKey.asc -o /tmp/GBCommunitySigningKey.asc
     gpg --import /tmp/GBCommunitySigningKey.asc
     echo "8AE4BE429B60A59B311C2E739823FAA60ED1E580:6:" > /tmp/ownertrust.txt
@@ -130,7 +129,6 @@
 
 - name: Build and install GVM components from source (this can take a while)
   ansible.builtin.shell: |
-    set -e
     export PATH="$PATH:/usr/local/sbin"
     export INSTALL_PREFIX="{{ install_prefix }}"
     export SOURCE_DIR="{{ source_dir }}"
@@ -252,7 +250,7 @@
 
 - name: Configure Redis for OpenVAS
   ansible.builtin.shell: |
-    set -e
+    
     cp {{ source_dir }}/openvas-scanner-{{ gvm_version }}/config/redis-openvas.conf /etc/redis/redis-openvas.conf
     chown redis:redis /etc/redis/redis-openvas.conf
     echo "mqtt_server_uri = localhost:1883" | tee -a /etc/openvas/openvas.conf
@@ -268,7 +266,7 @@
 
 - name: Fix permissions for Greenbone sync scripts
   ansible.builtin.shell: |
-    set -e
+    
     chown gvm:gvm /usr/local/bin/greenbone-nvt-sync || true
     chmod 740 /usr/local/sbin/greenbone-feed-sync || true
     chown gvm:gvm /usr/local/sbin/greenbone-*-sync || true
@@ -284,7 +282,7 @@
 
 - name: Prepare OpenVAS GnuPG home and trust
   ansible.builtin.shell: |
-    set -e
+    
     export GNUPGHOME=/tmp/openvas-gnupg
     mkdir -p $GNUPGHOME
     gpg --import /tmp/GBCommunitySigningKey.asc
@@ -313,7 +311,7 @@
 
 - name: Create PostgreSQL user and database for GVM
   ansible.builtin.shell: |
-    set -e
+    
     sudo -u postgres createuser -DRS gvm || true
     sudo -u postgres createdb -O gvm gvmd || true
     sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 <<'SQL'
@@ -331,7 +329,7 @@
 - name: Create GVM admin user (if enabled)
   when: gvm_create_admin | bool
   ansible.builtin.shell: |
-    set -e
+    
     ldconfig
     {{ install_prefix }}/sbin/gvmd --create-user={{ gvm_admin_user }} --password={{ gvm_admin_password }} || true
   args:
@@ -353,7 +351,7 @@
 - name: Sync NVT and feeds (can take long time)
   when: gvm_do_feed_sync | bool
   ansible.builtin.shell: |
-    set -e
+    
     sudo -u gvm {{ install_prefix }}/bin/greenbone-nvt-sync
     sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type GVMD_DATA
     sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type SCAP
