@@ -1,447 +1,522 @@
 ---
-- name: Ensure build directories exist
-  ansible.builtin.file:
+# 1) User/Group and base dirs
+- name: Ensure gvm system user and group exist
+  user:
+    name: gvm
+    system: yes
+    create_home: no
+    shell: /usr/sbin/nologin
+    groups: sudo
+    append: yes
+
+- name: Add current user to gvm group
+  user:
+    name: "{{ ansible_user | default(lookup('env','USER')) }}"
+    groups: gvm
+    append: yes
+- name: Ensure /usr/local/sbin is in PATH globally
+  lineinfile:
+    path: /etc/profile
+    line: 'export PATH="$PATH:/usr/local/sbin"'
+    insertafter: EOF
+- name: Create build/source/install directories
+  file:
     path: "{{ item }}"
     state: directory
-    owner: root
-    group: root
     mode: "0755"
   loop:
     - "{{ source_dir }}"
     - "{{ build_dir }}"
     - "{{ install_dir }}"
 
-- name: Update apt cache and upgrade minimal
-  ansible.builtin.apt:
+# 2) Common build deps + GPG
+- name: Install common build prerequisites
+  apt:
     update_cache: yes
-    upgrade: dist
-
-- name: Install base dependencies for GVM build
-  ansible.builtin.apt:
     name:
       - build-essential
-      - libssl-dev
+      - curl
       - cmake
       - pkg-config
-      - gcc-mingw-w64
-      - libgnutls28-dev
-      - libxml2-dev
-      - libssh-gcrypt-dev
-      - libunistring-dev
-      - libldap2-dev
-      - libgcrypt20-dev
-      - libpcap-dev
+      - python3
+      - python3-pip
+      - gnupg
+    state: present
+
+- name: Download Greenbone Community Signing key
+  get_url:
+    url: "{{ greenbone_signing_key_url }}"
+    dest: "/tmp/GBCommunitySigningKey.asc"
+    mode: "0644"
+
+- name: Import Greenbone signing key
+  shell: "gpg --import /tmp/GBCommunitySigningKey.asc"
+  args: { executable: /bin/bash }
+
+- name: Mark Greenbone key as fully trusted
+  shell: "echo '{{ greenbone_signing_key_fpr_trust }}' | gpg --import-ownertrust"
+  args: { executable: /bin/bash }
+
+# 3) Build core libs first: gvm-libs -> pg-gvm -> gvmd
+- name: Install gvm-libs dependencies
+  apt:
+    name:
+      - libcjson-dev
+      - libcurl4-gnutls-dev
+      - libgcrypt-dev
       - libglib2.0-dev
+      - libgnutls28-dev
       - libgpgme-dev
-      - libradcli-dev
-      - libjson-glib-dev
-      - libksba-dev
+      - libhiredis-dev
+      - libnet1-dev
+      - libpaho-mqtt-dev
+      - libpcap-dev
+      - libssh-dev
+      - libxml2-dev
+      - uuid-dev
+    state: present
+
+- name: Download + verify gvm-libs
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/gvm-libs/archive/refs/tags/v{{ gvm_libs_version }}.tar.gz -o {{ source_dir }}/gvm-libs-{{ gvm_libs_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/gvm-libs/releases/download/v{{ gvm_libs_version }}/gvm-libs-{{ gvm_libs_version }}.tar.gz.asc -o {{ source_dir }}/gvm-libs-{{ gvm_libs_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/gvm-libs-{{ gvm_libs_version }}.tar.gz.asc {{ source_dir }}/gvm-libs-{{ gvm_libs_version }}.tar.gz
+    tar -C {{ source_dir }} -xvzf {{ source_dir }}/gvm-libs-{{ gvm_libs_version }}.tar.gz
+  args: { executable: /bin/bash }
+
+- name: Build & install gvm-libs
+  shell: |
+    set -e
+    mkdir -p {{ build_dir }}/gvm-libs
+    cmake -S {{ source_dir }}/gvm-libs-{{ gvm_libs_version }} -B {{ build_dir }}/gvm-libs -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var
+    cmake --build {{ build_dir }}/gvm-libs -j$(nproc)
+    mkdir -p {{ install_dir }}/gvm-libs && cd {{ build_dir }}/gvm-libs
+    make DESTDIR={{ install_dir }}/gvm-libs install
+    cp -rv {{ install_dir }}/gvm-libs/* /
+  args: { executable: /bin/bash }
+
+- name: Install gvmd dependencies
+  apt:
+    name:
+      - libbsd-dev
+      - libcjson-dev
+      - libglib2.0-dev
+      - libgnutls28-dev
+      - libgpgme-dev
       - libical-dev
       - libpq-dev
-      - libsnmp-dev
-      - libpopt-dev
-      - libnet1-dev
-      - gnupg
-      - gnutls-bin
-      - libmicrohttpd-dev
-      - redis-server
-      - libhiredis-dev
-      - openssh-client
-      - xsltproc
-      - nmap
-      - bison
-      - postgresql
       - postgresql-server-dev-all
-      - smbclient
-      - fakeroot
-      - sshpass
-      - wget
-      - heimdal-dev
-      - dpkg
       - rsync
-      - zip
-      - rpm
-      - nsis
-      - socat
+      - xsltproc
+    state: present
+
+- name: Download + verify gvmd
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/gvmd/archive/refs/tags/v{{ gvmd_version }}.tar.gz -o {{ source_dir }}/gvmd-{{ gvmd_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/gvmd/releases/download/v{{ gvmd_version }}/gvmd-{{ gvmd_version }}.tar.gz.asc -o {{ source_dir }}/gvmd-{{ gvmd_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/gvmd-{{ gvmd_version }}.tar.gz.asc {{ source_dir }}/gvmd-{{ gvmd_version }}.tar.gz
+    tar -C {{ source_dir }} -xvzf {{ source_dir }}/gvmd-{{ gvmd_version }}.tar.gz
+  args: { executable: /bin/bash }
+
+- name: Build & install gvmd
+  shell: |
+    set -e
+    mkdir -p {{ build_dir }}/gvmd
+    cmake -S {{ source_dir }}/gvmd-{{ gvmd_version }} -B {{ build_dir }}/gvmd       -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release       -DLOCALSTATEDIR=/var -DSYSCONFDIR=/etc -DGVM_DATA_DIR=/var -DGVM_LOG_DIR=/var/log/gvm       -DGVMD_RUN_DIR=/run/gvmd -DOPENVAS_DEFAULT_SOCKET=/run/ospd/ospd-openvas.sock       -DGVM_FEED_LOCK_PATH=/var/lib/gvm/feed-update.lock -DLOGROTATE_DIR=/etc/logrotate.d
+    cmake --build {{ build_dir }}/gvmd -j$(nproc)
+    mkdir -p {{ install_dir }}/gvmd && cd {{ build_dir }}/gvmd
+    make DESTDIR={{ install_dir }}/gvmd install
+    cp -rv {{ install_dir }}/gvmd/* /
+  args: { executable: /bin/bash }
+
+- name: Install pg-gvm dependencies
+  apt:
+    name:
+      - libglib2.0-dev
+      - libical-dev
+      - postgresql-server-dev-all
+    state: present
+
+- name: Download + verify pg-gvm
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/pg-gvm/archive/refs/tags/v{{ pg_gvm_version }}.tar.gz -o {{ source_dir }}/pg-gvm-{{ pg_gvm_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/pg-gvm/releases/download/v{{ pg_gvm_version }}/pg-gvm-{{ pg_gvm_version }}.tar.gz.asc -o {{ source_dir }}/pg-gvm-{{ pg_gvm_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/pg-gvm-{{ pg_gvm_version }}.tar.gz.asc {{ source_dir }}/pg-gvm-{{ pg_gvm_version }}.tar.gz
+    tar -C {{ source_dir }} -xvzf {{ source_dir }}/pg-gvm-{{ pg_gvm_version }}.tar.gz
+  args: { executable: /bin/bash }
+
+- name: Build & install pg-gvm
+  shell: |
+    set -e
+    mkdir -p {{ build_dir }}/pg-gvm
+    cmake -S {{ source_dir }}/pg-gvm-{{ pg_gvm_version }} -B {{ build_dir }}/pg-gvm -DCMAKE_BUILD_TYPE=Release
+    cmake --build {{ build_dir }}/pg-gvm -j$(nproc)
+    mkdir -p {{ install_dir }}/pg-gvm && cd {{ build_dir }}/pg-gvm
+    make DESTDIR={{ install_dir }}/pg-gvm install
+    cp -rv {{ install_dir }}/pg-gvm/* /
+  args: { executable: /bin/bash }
+
+# 5) Continue building remaining components
+# GSA (prebuilt dist)
+- name: Download + verify GSA dist
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/gsa/releases/download/v{{ gsa_version }}/gsa-dist-{{ gsa_version }}.tar.gz -o {{ source_dir }}/gsa-{{ gsa_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/gsa/releases/download/v{{ gsa_version }}/gsa-dist-{{ gsa_version }}.tar.gz.asc -o {{ source_dir }}/gsa-{{ gsa_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/gsa-{{ gsa_version }}.tar.gz.asc {{ source_dir }}/gsa-{{ gsa_version }}.tar.gz
+    mkdir -p {{ source_dir }}/gsa-{{ gsa_version }}
+    tar -C {{ source_dir }}/gsa-{{ gsa_version }} -xvzf {{ source_dir }}/gsa-{{ gsa_version }}.tar.gz
+  args: { executable: /bin/bash }
+
+- name: Install GSA web files
+  shell: |
+    set -e
+    mkdir -p {{ install_prefix }}/share/gvm/gsad/web/
+    cp -rv {{ source_dir }}/gsa-{{ gsa_version }}/* {{ install_prefix }}/share/gvm/gsad/web/
+  args: { executable: /bin/bash }
+
+# GSAD (server)
+- name: Install gsad deps
+  apt:
+    name:
+      - libbrotli-dev
+      - libglib2.0-dev
+      - libgnutls28-dev
+      - libmicrohttpd-dev
+      - libxml2-dev
+    state: present
+
+- name: Download + verify gsad
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/gsad/archive/refs/tags/v{{ gsad_version }}.tar.gz -o {{ source_dir }}/gsad-{{ gsad_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/gsad/releases/download/v{{ gsad_version }}/gsad-{{ gsad_version }}.tar.gz.asc -o {{ source_dir }}/gsad-{{ gsad_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/gsad-{{ gsad_version }}.tar.gz.asc {{ source_dir }}/gsad-{{ gsad_version }}.tar.gz
+    tar -C {{ source_dir }} -xvzf {{ source_dir }}/gsad-{{ gsad_version }}.tar.gz
+  args: { executable: /bin/bash }
+
+- name: Build & install gsad
+  shell: |
+    set -e
+    mkdir -p {{ build_dir }}/gsad
+    cmake -S {{ source_dir }}/gsad-{{ gsad_version }} -B {{ build_dir }}/gsad -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DGVMD_RUN_DIR=/run/gvmd -DGSAD_RUN_DIR=/run/gsad -DGVM_LOG_DIR=/var/log/gvm -DLOGROTATE_DIR=/etc/logrotate.d
+    cmake --build {{ build_dir }}/gsad -j$(nproc)
+    mkdir -p {{ install_dir }}/gsad && cd {{ build_dir }}/gsad
+    make DESTDIR={{ install_dir }}/gsad install
+    cp -rv {{ install_dir }}/gsad/* /
+  args: { executable: /bin/bash }
+
+# openvas-smb
+- name: Install openvas-smb deps
+  apt:
+    name:
+      - gcc-mingw-w64
+      - libgnutls28-dev
+      - libglib2.0-dev
+      - libpopt-dev
+      - libunistring-dev
+      - heimdal-multidev
+      - perl-base
+    state: present
+
+- name: Download + verify openvas-smb
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/openvas-smb/archive/refs/tags/v{{ openvas_smb_version }}.tar.gz -o {{ source_dir }}/openvas-smb-{{ openvas_smb_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-smb/releases/download/v{{ openvas_smb_version }}/openvas-smb-v{{ openvas_smb_version }}.tar.gz.asc -o {{ source_dir }}/openvas-smb-{{ openvas_smb_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/openvas-smb-{{ openvas_smb_version }}.tar.gz.asc {{ source_dir }}/openvas-smb-{{ openvas_smb_version }}.tar.gz
+    tar -C {{ source_dir }} -xvzf {{ source_dir }}/openvas-smb-{{ openvas_smb_version }}.tar.gz
+  args: { executable: /bin/bash }
+
+- name: Build & install openvas-smb
+  shell: |
+    set -e
+    mkdir -p {{ build_dir }}/openvas-smb
+    cmake -S {{ source_dir }}/openvas-smb-{{ openvas_smb_version }} -B {{ build_dir }}/openvas-smb -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release
+    cmake --build {{ build_dir }}/openvas-smb -j$(nproc)
+    mkdir -p {{ install_dir }}/openvas-smb && cd {{ build_dir }}/openvas-smb
+    make DESTDIR={{ install_dir }}/openvas-smb install
+    cp -rv {{ install_dir }}/openvas-smb/* /
+  args: { executable: /bin/bash }
+
+# openvas-scanner
+- name: Install openvas-scanner deps
+  apt:
+    name:
+      - bison
+      - libglib2.0-dev
+      - libgnutls28-dev
+      - libgcrypt20-dev
+      - libpcap-dev
+      - libgpgme-dev
+      - libksba-dev
+      - rsync
+      - nmap
+      - libjson-glib-dev
+      - libcurl4-gnutls-dev
       - libbsd-dev
-      - snmp
-      - uuid-dev
-      - curl
-      - gpgsm
-      - python3
-      - python3-paramiko
-      - python3-lxml
-      - python3-defusedxml
-      - python3-pip
-      - python3-psutil
+      - krb5-multidev
       - python3-impacket
+      - libsnmp-dev
+    state: present
+
+- name: Download + verify openvas-scanner
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/openvas-scanner/archive/refs/tags/v{{ openvas_scanner_version }}.tar.gz -o {{ source_dir }}/openvas-scanner-{{ openvas_scanner_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-scanner/releases/download/v{{ openvas_scanner_version }}/openvas-scanner-v{{ openvas_scanner_version }}.tar.gz.asc -o {{ source_dir }}/openvas-scanner-{{ openvas_scanner_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/openvas-scanner-{{ openvas_scanner_version }}.tar.gz.asc {{ source_dir }}/openvas-scanner-{{ openvas_scanner_version }}.tar.gz
+    tar -C {{ source_dir }} -xvzf {{ source_dir }}/openvas-scanner-{{ openvas_scanner_version }}.tar.gz
+  args: { executable: /bin/bash }
+
+- name: Build & install openvas-scanner
+  shell: |
+    set -e
+    mkdir -p {{ build_dir }}/openvas-scanner
+    cmake -S {{ source_dir }}/openvas-scanner-{{ openvas_scanner_version }} -B {{ build_dir }}/openvas-scanner -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DOPENVAS_FEED_LOCK_PATH=/var/lib/openvas/feed-update.lock -DOPENVAS_RUN_DIR=/run/ospd
+    cmake --build {{ build_dir }}/openvas-scanner -j$(nproc)
+    mkdir -p {{ install_dir }}/openvas-scanner && cd {{ build_dir }}/openvas-scanner
+    make DESTDIR={{ install_dir }}/openvas-scanner install
+    cp -rv {{ install_dir }}/openvas-scanner/* /
+    printf "table_driven_lsc = yes\n" | tee /etc/openvas/openvas.conf
+    printf "openvasd_server = http://127.0.0.1:3000\n" | tee -a /etc/openvas/openvas.conf
+  args: { executable: /bin/bash }
+
+  # ospd-openvas (pip)
+- name: Install ospd-openvas Python deps
+  apt:
+    name:
+      - python3
+      - python3-pip
       - python3-setuptools
       - python3-packaging
       - python3-wrapt
       - python3-cffi
+      - python3-psutil
+      - python3-lxml
+      - python3-defusedxml
+      - python3-paramiko
       - python3-redis
       - python3-gnupg
-      - xmlstarlet
-      - texlive-fonts-recommended
-      - texlive-latex-extra
-      - perl-base
-      - xml-twig-tools
-      - libpaho-mqtt-dev
       - python3-paho-mqtt
-      - mosquitto
-      - xmltoman
-      - doxygen
-      - nodejs
-      - yarn
     state: present
 
-- name: Create gvm system group
-  ansible.builtin.group:
-    name: gvm
-    system: yes
-    state: present
+- name: Download + verify ospd-openvas
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/ospd-openvas/archive/refs/tags/v{{ ospd_openvas_version }}.tar.gz -o {{ source_dir }}/ospd-openvas-{{ ospd_openvas_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/ospd-openvas/releases/download/v{{ ospd_openvas_version }}/ospd-openvas-v{{ ospd_openvas_version }}.tar.gz.asc -o {{ source_dir }}/ospd-openvas-{{ ospd_openvas_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/ospd-openvas-{{ ospd_openvas_version }}.tar.gz.asc {{ source_dir }}/ospd-openvas-{{ ospd_openvas_version }}.tar.gz
+    tar -C {{ source_dir }} -xvzf {{ source_dir }}/ospd-openvas-{{ ospd_openvas_version }}.tar.gz
+  args: { executable: /bin/bash }
 
-- name: Add gvm system user and group
-  ansible.builtin.user:
-    name: gvm
-    system: yes
-    group: gvm
-    shell: /usr/sbin/nologin
-    create_home: no
+- name: Install ospd-openvas via pip (staged)
+  shell: |
+    set -e
+    mkdir -p {{ install_dir }}/ospd-openvas
+    cd {{ source_dir }}/ospd-openvas-{{ ospd_openvas_version }}
+    python3 -m pip install --root={{ install_dir }}/ospd-openvas --no-warn-script-location .
+    cp -rv {{ install_dir }}/ospd-openvas/* /
+  args: { executable: /bin/bash }
 
-- name: Add current ansible user to gvm group
-  ansible.builtin.user:
-    name: "{{ ansible_user | default(ansible_user_id) }}"
-    groups: gvm
-    append: yes
-
-- name: Import Greenbone Community signing key and ownertrust
-  ansible.builtin.shell: |
-    curl -fsSL https://www.greenbone.net/GBCommunitySigningKey.asc -o /tmp/GBCommunitySigningKey.asc
-    gpg --import /tmp/GBCommunitySigningKey.asc
-    echo "8AE4BE429B60A59B311C2E739823FAA60ED1E580:6:" > /tmp/ownertrust.txt
-    gpg --import-ownertrust < /tmp/ownertrust.txt
-  args:
-    executable: /bin/bash
-
-- name: Build and install GVM components from source (this can take a while)
-  ansible.builtin.shell: |
-    export PATH="$PATH:/usr/local/sbin"
-    export INSTALL_PREFIX="{{ install_prefix }}"
-    export SOURCE_DIR="{{ source_dir }}"
-    export BUILD_DIR="{{ build_dir }}"
-    export INSTALL_DIR="{{ install_dir }}"
-    export GVMD_VERSION="{{ gvmd_version }}"
-    export GVM_VERSION="{{ gvm_version }}"
-    export GVM_LIBS_VERSION="{{ gvm_libs_version }}"
-    export PG_GVM_VERSION=22.6.9
-    export GSA_VERSION=25.0.0
-    export GSAD_VERSION=24.3.0
-    export OPENVAS_SMB_VERSION=22.5.3
-    export OPENVAS_SCANNER_VERSION=23.20.1
-    export OSPD_OPENVAS_VERSION=22.9.0
-    export OPENVAS_DAEMON=23.20.0
-
-    # gvm-libs
-    curl -f -L https://github.com/greenbone/gvm-libs/archive/refs/tags/v${GVM_LIBS_VERSION}.tar.gz -o ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/gvm-libs/releases/download/v${GVM_LIBS_VERSION}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz.asc ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION}.tar.gz
-    mkdir -p ${BUILD_DIR}/gvm-libs && cd ${BUILD_DIR}/gvm-libs
-    cmake ${SOURCE_DIR}/gvm-libs-${GVM_LIBS_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var
-    make DESTDIR=${INSTALL_DIR} install
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf ${INSTALL_DIR}/*
-
-    # gvmd
-    curl -f -L https://github.com/greenbone/gvmd/archive/refs/tags/v${GVMD_VERSION}.tar.gz -o ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/gvmd/releases/download/v${GVMD_VERSION}/gvmd-${GVMD_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz.asc ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gvmd-${GVMD_VERSION}.tar.gz
-    mkdir -p ${BUILD_DIR}/gvmd && cd ${BUILD_DIR}/gvmd
-    cmake ${SOURCE_DIR}/gvmd-${GVMD_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DLOCALSTATEDIR=/var -DSYSCONFDIR=/etc -DGVM_DATA_DIR=/var -DOPENVAS_DEFAULT_SOCKET=/run/ospd/ospd-openvas.sock -DGVM_FEED_LOCK_PATH=/var/lib/gvm/feed-update.lock -DSYSTEMD_SERVICE_DIR=/lib/systemd/system -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql -DLOGROTATE_DIR=/etc/logrotate.d
-    make DESTDIR=${INSTALL_DIR} install
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf ${INSTALL_DIR}/*
-
-    # pg-gvm
-    curl -f -L https://github.com/greenbone/pg-gvm/archive/refs/tags/v${PG_GVM_VERSION}.tar.gz -o ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/pg-gvm/releases/download/v${PG_GVM_VERSION}/pg-gvm-${PG_GVM_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz.asc ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION}.tar.gz
-    mkdir -p ${BUILD_DIR}/pg-gvm && cd ${BUILD_DIR}/pg-gvm
-    cmake ${SOURCE_DIR}/pg-gvm-${PG_GVM_VERSION} -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} -DCMAKE_BUILD_TYPE=Release -DPostgreSQL_TYPE_INCLUDE_DIR=/usr/include/postgresql
-    make DESTDIR=${INSTALL_DIR} install
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf ${INSTALL_DIR}/*
-
-    # GSA (web UI)
-    curl -f -L https://github.com/greenbone/gsa/archive/refs/tags/v${GSA_VERSION}.tar.gz -o ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/gsa/releases/download/v${GSA_VERSION}/gsa-${GSA_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz.asc ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gsa-${GSA_VERSION}.tar.gz
-    cd ${SOURCE_DIR}/gsa-${GSA_VERSION}
-    rm -rf build
-    yarn && yarn build
-    mkdir -p {{ install_prefix }}/share/gvm/gsad/web/
-    cp -r build/* {{ install_prefix }}/share/gvm/gsad/web/
-
-    # GSAD
-    curl -f -L https://github.com/greenbone/gsad/archive/refs/tags/v${GSAD_VERSION}.tar.gz -o ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/gsad/releases/download/v${GSAD_VERSION}/gsad-${GSAD_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz.asc ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/gsad-${GSAD_VERSION}.tar.gz
-    mkdir -p ${BUILD_DIR}/gsad && cd ${BUILD_DIR}/gsad
-    cmake ${SOURCE_DIR}/gsad-${GSAD_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DGVMD_RUN_DIR=/run/gvmd -DGSAD_RUN_DIR=/run/gsad -DLOGROTATE_DIR=/etc/logrotate.d
-    make DESTDIR={{ install_dir }} install
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf {{ install_dir }}/*
-
-    # openvas-smb
-    curl -f -L https://github.com/greenbone/openvas-smb/archive/refs/tags/v${OPENVAS_SMB_VERSION}.tar.gz -o ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/openvas-smb/releases/download/v${OPENVAS_SMB_VERSION}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz.asc ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION}.tar.gz
-    mkdir -p ${BUILD_DIR}/openvas-smb && cd ${BUILD_DIR}/openvas-smb
-    cmake ${SOURCE_DIR}/openvas-smb-${OPENVAS_SMB_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release
-    make DESTDIR={{ install_dir }} install
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf {{ install_dir }}/*
-
-    # openvas-scanner
-    curl -f -L https://github.com/greenbone/openvas-scanner/archive/refs/tags/v${OPENVAS_SCANNER_VERSION}.tar.gz -o ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/openvas-scanner/releases/download/v${OPENVAS_SCANNER_VERSION}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz.asc ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION}.tar.gz
-    mkdir -p ${BUILD_DIR}/openvas-scanner && cd ${BUILD_DIR}/openvas-scanner
-    cmake ${SOURCE_DIR}/openvas-scanner-${OPENVAS_SCANNER_VERSION} -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var -DOPENVAS_FEED_LOCK_PATH=/var/lib/openvas/feed-update.lock -DOPENVAS_RUN_DIR=/run/ospd
-    make DESTDIR={{ install_dir }} install
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf {{ install_dir }}/*
-
-    # ospd-openvas (python)
-    curl -f -L https://github.com/greenbone/ospd-openvas/archive/refs/tags/v${OSPD_OPENVAS_VERSION}.tar.gz -o ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz
-    curl -f -L https://github.com/greenbone/ospd-openvas/releases/download/v${OSPD_OPENVAS_VERSION}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz.asc -o ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz.asc ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}.tar.gz
-    cd ${SOURCE_DIR}/ospd-openvas-${OSPD_OPENVAS_VERSION}
-    python3 -m pip install . --prefix /usr --no-warn-script-location --no-dependencies
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf ${INSTALL_DIR}/*
-
-    # openvasd
-    curl https://sh.rustup.rs -sSf | sh -s -- -y
-    source $HOME/.cargo/env
+# openvasd (rust)
+- name: Ensure rustup & toolchain for openvasd
+  shell: |
+    set -e
+    if ! command -v rustup >/dev/null 2>&1; then
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      export PATH="$HOME/.cargo/bin:$PATH"
+    fi
     rustup update stable
+  args: { executable: /bin/bash }
 
-    # --- Download and verify OpenVAS Scanner sources ---
-    curl -f -L https://github.com/greenbone/openvas-scanner/archive/refs/tags/v${OPENVAS_DAEMON}.tar.gz \
-      -o ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz
-    curl -f -L https://github.com/greenbone/openvas-scanner/releases/download/v${OPENVAS_DAEMON}/openvas-scanner-v${OPENVAS_DAEMON}.tar.gz.asc \
-      -o ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz.asc
-    gpg --verify ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz.asc ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz
-    tar -C ${SOURCE_DIR} -xzf ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}.tar.gz
-    mkdir -p ${INSTALL_DIR}/openvasd/usr/local/bin
-    cd ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}/rust/src/openvasd
+- name: Install openvasd build deps
+  apt:
+    name:
+      - pkg-config
+      - libssl-dev
+    state: present
+
+- name: Download + verify openvasd sources
+  shell: |
+    set -e
+    curl -f -L https://github.com/greenbone/openvas-scanner/archive/refs/tags/v{{ openvas_daemon_version }}.tar.gz -o {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}.tar.gz
+    curl -f -L https://github.com/greenbone/openvas-scanner/releases/download/v{{ openvas_daemon_version }}/openvas-scanner-v{{ openvas_daemon_version }}.tar.gz.asc -o {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}.tar.gz.asc
+    gpg --verify {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}.tar.gz.asc {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}.tar.gz
+    tar -C {{ source_dir }} -xvzf {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}.tar.gz
+  args: { executable: /bin/bash }
+
+- name: Build openvasd and scannerctl
+  shell: |
+    set -e
+    export PATH="$HOME/.cargo/bin:$PATH"
+    mkdir -p {{ install_dir }}/openvasd/usr/local/bin
+    cd {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}/rust/src/openvasd
     cargo build --release
-    cd ${SOURCE_DIR}/openvas-scanner-${OPENVAS_DAEMON}/rust/src/scannerctl
+    cd {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}/rust/src/scannerctl
     cargo build --release
-    cp -v ../../target/release/openvasd ${INSTALL_DIR}/openvasd/usr/local/bin/
-    cp -v ../../target/release/scannerctl ${INSTALL_DIR}/openvasd/usr/local/bin/
-    rsync -a ${INSTALL_DIR}/openvasd/ /usr/local/bin/ || true
-    rm -rf ${INSTALL_DIR}/openvasd/*
+    cp -v {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}/rust/target/release/openvasd {{ install_dir }}/openvasd/usr/local/bin/
+    cp -v {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}/rust/target/release/scannerctl {{ install_dir }}/openvasd/usr/local/bin/
+    cp -rv {{ install_dir }}/openvasd/* /
+  args: { executable: /bin/bash }
 
-    # gvm-tools (CLI utilities)
-    python3 -m pip install --prefix /usr --no-warn-script-location --no-dependencies gvm-tools
-    rsync -a ${INSTALL_DIR}/ / || true
-    rm -rf ${INSTALL_DIR}/*
+# greenbone-feed-sync & gvm-tools
+- name: Install greenbone-feed-sync system-wide
+  shell: |
+    set -e
+    mkdir -p {{ install_dir }}/greenbone-feed-sync
+    python3 -m pip install --root={{ install_dir }}/greenbone-feed-sync --no-warn-script-location greenbone-feed-sync
+    cp -rv {{ install_dir }}/greenbone-feed-sync/* /
+  args: { executable: /bin/bash }
+- name: Install gvm-tools build deps
+  apt:
+    name:
+      - python3
+      - python3-lxml
+      - python3-packaging
+      - python3-paramiko
+      - python3-pip
+      - python3-setuptools
+      - python3-venv
+    state: present
+- name: Install gvm-tools (optional)
+  shell: |
+    set -e
+    mkdir -p {{ install_dir }}/gvm-tools
+    python3 -m pip install --root={{ install_dir }}/gvm-tools --no-warn-script-location gvm-tools
+    cp -rv {{ install_dir }}/gvm-tools/* /
+  args: { executable: /bin/bash }
 
-  args:
-    executable: /bin/bash
+# 6) System setup: Redis, dirs, sudoers, feed validation keyring
+- name: Install redis-server
+  apt:
+    name: redis-server
+    state: present
 
-# - name: Ensure mosquitto is enabled and started (required by notus/ospd)
-#   ansible.builtin.service:
-#     name: mosquitto
-#     enabled: true
-#     state: started
-
-- name: Configure Redis for OpenVAS
-  ansible.builtin.shell: |
-    export OPENVAS_SCANNER_VERSION=23.20.1
-    cp {{ source_dir }}/openvas-scanner-${OPENVAS_SCANNER_VERSION}/config/redis-openvas.conf /etc/redis/redis-openvas.conf
+- name: Configure Redis for OpenVAS and openvas.conf
+  shell: |
+    set -e
+    cp {{ source_dir }}/openvas-scanner-{{ openvas_scanner_version }}/config/redis-openvas.conf /etc/redis/
     chown redis:redis /etc/redis/redis-openvas.conf
-    echo "mqtt_server_uri = localhost:1883" | tee -a /etc/openvas/openvas.conf
-    echo "db_address = /run/redis-openvas/redis.sock" | sudo tee -a /etc/openvas/openvas.conf
-    mkdir -p /var/lib/notus /run/notus-scanner /run/gvmd
-    usermod -aG redis gvm
-    chown -R gvm:gvm /var/lib/gvm /var/lib/openvas /var/lib/notus /var/log/gvm /run/gvmd /run/notus-scanner || true
-    chmod -R g+srw /var/lib/gvm /var/lib/openvas /var/log/gvm || true
-    chown gvm:gvm {{ install_prefix }}/sbin/gvmd || true
-    chmod 6750 {{ install_prefix }}/sbin/gvmd || true
-  args:
-    executable: /bin/bash
+    echo "db_address = /run/redis-openvas/redis.sock" | tee -a /etc/openvas/openvas.conf
+  args: { executable: /bin/bash }
 
-- name: Fix permissions for Greenbone sync scripts
-  ansible.builtin.shell: |
-
-    chown gvm:gvm /usr/local/bin/greenbone-nvt-sync || true
-    chmod 740 /usr/local/sbin/greenbone-feed-sync || true
-    chown gvm:gvm /usr/local/sbin/greenbone-*-sync || true
-    chmod 740 /usr/local/sbin/greenbone-*-sync || true
-  args:
-    executable: /bin/bash
-
-- name: Start and enable Redis openvas instance
-  ansible.builtin.service:
-    name: "redis-server@openvas.service"
-    enabled: true
+- name: Enable and start redis-server@openvas
+  systemd:
+    name: redis-server@openvas.service
+    enabled: yes
     state: started
 
-- name: Prepare OpenVAS GnuPG home and trust
-  ansible.builtin.shell: |
+- name: Add gvm user to redis group
+  user:
+    name: gvm
+    groups: redis
+    append: yes
 
+- name: Ensure directories/permissions
+  shell: |
+    set -e
+    mkdir -p /var/lib/notus
+    mkdir -p /run/gvmd
+    chown -R gvm:gvm /var/lib/gvm /var/lib/openvas /var/lib/notus /var/log/gvm || true
+    chown -R gvm:gvm /run/gvmd
+    chmod -R g+srw /var/lib/gvm /var/lib/openvas /var/log/gvm || true
+  args: { executable: /bin/bash }
+
+- name: Set gvmd binary permissions (setuid/setgid)
+  file:
+    path: /usr/local/sbin/gvmd
+    owner: gvm
+    group: gvm
+    mode: "06750"
+
+- name: Prepare feed validation keyring
+  shell: |
+    set -e
+    curl -f -L {{ greenbone_signing_key_url }} -o /tmp/GBCommunitySigningKey.asc
     export GNUPGHOME=/tmp/openvas-gnupg
     mkdir -p $GNUPGHOME
     gpg --import /tmp/GBCommunitySigningKey.asc
-    echo "8AE4BE429B60A59B311C2E739823FAA60ED1E580:6:" > /tmp/ownertrust.txt
-    gpg --import-ownertrust < /tmp/ownertrust.txt
+    echo "{{ greenbone_signing_key_fpr_trust }}" | gpg --import-ownertrust
     export OPENVAS_GNUPG_HOME=/etc/openvas/gnupg
     mkdir -p $OPENVAS_GNUPG_HOME
-    cp -r /tmp/openvas-gnupg/* $OPENVAS_GNUPG_HOME/ || true
+    cp -r /tmp/openvas-gnupg/* $OPENVAS_GNUPG_HOME/
     chown -R gvm:gvm $OPENVAS_GNUPG_HOME
-  args:
-    executable: /bin/bash
+  args: { executable: /bin/bash }
 
-- name: Allow gvm group to run openvas without password
-  ansible.builtin.lineinfile:
-    path: /etc/sudoers
+- name: Sudoers rule to allow openvas as root
+  copy:
+    dest: /etc/sudoers.d/gvm
+    mode: "0440"
+    content: "%gvm ALL = NOPASSWD: /usr/local/sbin/openvas"
+# 4) PostgreSQL setup (then admin + Feed Import Owner immediately)
+- name: Install PostgreSQL server
+  apt:
+    name: postgresql
     state: present
-    regexp: "^%gvm ALL"
-    line: "%gvm ALL = NOPASSWD: /usr/local/sbin/openvas"
-    validate: "visudo -cf %s"
 
-- name: Start PostgreSQL service
-  ansible.builtin.service:
-    name: "postgresql@{{ postgres_version }}-main.service"
+- name: Ensure PostgreSQL is running
+  systemd:
+    name: postgresql
     state: started
-    enabled: true
+    enabled: yes
 
-- name: Create PostgreSQL user and database for GVM
-  ansible.builtin.shell: |
+- name: Create gvm DB user and database
+  become_user: postgres
+  shell: |
+    set -e
+    createuser -DRS gvm || true
+    createdb -O gvm gvmd || true
+    psql gvmd -c "create role dba with superuser noinherit; grant dba to gvm;" || true
+  args: { executable: /bin/bash }
 
-    sudo -u postgres createuser -DRS gvm || true
-    sudo -u postgres createdb -O gvm gvmd || true
-    sudo -u postgres psql gvmd -v ON_ERROR_STOP=1 <<'SQL'
-      DO $$ BEGIN
-        CREATE ROLE dba WITH SUPERUSER NOINHERIT;
-      EXCEPTION WHEN duplicate_object THEN NULL;
-      END $$;
-      GRANT dba TO gvm;
-      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-      CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-    SQL
-  args:
-    executable: /bin/bash
+- name: Create admin user with provided password (admin/admin) right after DB
+  shell: |
+    set -e
+    if /usr/local/sbin/gvmd --get-users | grep -qx "{{ gvmd_admin_user }}"; then
+      exit 0
+    fi
+    /usr/local/sbin/gvmd --create-user={{ gvmd_admin_user }} --password='{{ gvmd_admin_password }}'
+  args: { executable: /bin/bash }
 
-- name: Create GVM admin user (if enabled)
-  when: gvm_create_admin | bool
-  ansible.builtin.shell: |
-
-    ldconfig
-    {{ install_prefix }}/sbin/gvmd --create-user={{ gvm_admin_user }} --password={{ gvm_admin_password }} || true
-  args:
-    executable: /bin/bash
-
-- name: Retrieve GVM admin user UUID
-  ansible.builtin.shell: |
-    gvmd --get-users --verbose | awk '/{{ gvm_admin_user }}/ {print $2}'
-  register: gvm_admin_uuid
-  changed_when: false
-
-- name: Apply admin UUID to gvmd setting
-  ansible.builtin.shell: |
-    gvmd --modify-setting 78eceaec-3385-11ea-b237-28d24461215b --value {{ gvm_admin_uuid.stdout }}
-  when: gvm_admin_uuid.stdout != ""
-  args:
-    executable: /bin/bash
-
-- name: Sync NVT and feeds (can take long time)
-  when: gvm_do_feed_sync | bool
-  ansible.builtin.shell: |
-
-    sudo -u gvm {{ install_prefix }}/bin/greenbone-nvt-sync
-    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type GVMD_DATA
-    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type SCAP
-    sudo -u gvm {{ install_prefix }}/sbin/greenbone-feed-sync --type CERT
-  args:
-    executable: /bin/bash
-  async: 7200
-  poll: 0
-
-- name: Deploy systemd unit for gvmd
-  ansible.builtin.template:
-    src: systemd/gvmd.service.j2
-    dest: /etc/systemd/system/gvmd.service
-    owner: root
-    group: root
+- name: Set Feed Import Owner to admin user UUID
+  shell: |
+    set -e
+    ADMIN_UUID=$(/usr/local/sbin/gvmd --get-users --verbose | awk '/^{{ gvmd_admin_user }} /{print $2}')
+    /usr/local/sbin/gvmd --modify-setting 78eceaec-3385-11ea-b237-28d24461215b --value "$ADMIN_UUID"
+  args: { executable: /bin/bash }
+  failed_when: false
+# 7) Systemd units installation
+- name: Install systemd service files
+  template:
+    src: "{{ item.src }}"
+    dest: "/etc/systemd/system/{{ item.dest }}"
     mode: "0644"
-  notify: daemon-reload
-
-- name: Deploy systemd unit for gsad
-  ansible.builtin.template:
-    src: systemd/gsad.service.j2
-    dest: /etc/systemd/system/gsad.service
-    owner: root
-    group: root
-    mode: "0644"
-  notify: daemon-reload
-
-- name: Deploy systemd unit for ospd-openvas
-  ansible.builtin.template:
-    src: systemd/ospd-openvas.service.j2
-    dest: /etc/systemd/system/ospd-openvas.service
-    owner: root
-    group: root
-    mode: "0644"
-  notify: daemon-reload
-
-- name: Deploy systemd unit for openvasd
-  ansible.builtin.template:
-    src: systemd/openvasd.service.j2
-    dest: /etc/systemd/system/openvasd.service
-    owner: root
-    group: root
-    mode: "0644"
-  notify: daemon-reload
-
-- name: Enable services (do not force-start unless needed)
-  ansible.builtin.systemd:
-    name: "{{ item }}"
-    enabled: "{{ gvm_enable_services }}"
   loop:
-    - openvasd
+    - { src: "ospd-openvas.service.j2", dest: "ospd-openvas.service" }
+    - { src: "gvmd.service.j2", dest: "gvmd.service" }
+    - { src: "gsad.service.j2", dest: "gsad.service" }
+    - { src: "openvasd.service.j2", dest: "openvasd.service" }
+  notify: ["daemon-reload"]
+
+# 8) Run greenbone-feed-sync completely BEFORE starting services
+- name: Run greenbone-feed-sync (initial full sync)
+  command: /usr/local/bin/greenbone-feed-sync
+  register: feed_sync_result
+  changed_when: false
+  failed_when: false
+
+# 9) Now enable and start services so they do their own loading
+- name: Enable and start OSPD, GVMD, GSAD, OPENVASD
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+    state: started
+  loop:
     - ospd-openvas
     - gvmd
     - gsad
-
-- name: Ensure ospd-openvas is started (needed for gvmd init)
-  ansible.builtin.service:
-    name: ospd-openvas
-    state: started
-
-- name: Ensure gvmd is started for initial configuration
-  ansible.builtin.service:
-    name: gvmd
-    state: started
-
-- name: Ensure gsad is started for initial availability
-  ansible.builtin.service:
-    name: gsad
-    state: started
-
-- name: Final status note
-  ansible.builtin.debug:
-    msg: >
-      OpenVAS/GVM installation from source has been configured.
-      Services enabled={{ gvm_enable_services }}, initial admin user created={{ gvm_create_admin }},
-      feed sync triggered={{ gvm_do_feed_sync }}. Access the UI at https://<host>:{{ gsad_listen_port }}/
+    - openvasd

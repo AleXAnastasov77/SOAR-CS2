@@ -1,4 +1,20 @@
 ---
-# Project-level variables (you can override in playbook / Packer)
-gvm_admin_user: "admin"
-gvm_admin_password: "ChangeMe123!"
+install_prefix: /usr/local
+source_dir: /opt/source
+build_dir: /opt/build
+install_dir: /opt/install
+gvm_libs_version: "22.22.0"
+pg_gvm_version: "22.6.9"
+gvmd_version: "26.0.0"
+gsa_version: "25.0.0"
+gsad_version: "24.3.0"
+openvas_smb_version: "22.5.3"
+openvas_scanner_version: "23.20.1"
+ospd_openvas_version: "22.9.0"
+openvas_daemon_version: "23.20.0"
+gvmd_admin_user: "admin"
+gvmd_admin_password: "admin"
+gsad_listen_addr: "127.0.0.1"
+gsad_port: 9392
+greenbone_signing_key_url: "https://www.greenbone.net/GBCommunitySigningKey.asc"
+greenbone_signing_key_fpr_trust: "8AE4BE429B60A59B311C2E739823FAA60ED1E580:6:"
