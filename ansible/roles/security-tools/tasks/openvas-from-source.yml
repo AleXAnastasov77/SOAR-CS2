@@ -76,6 +76,17 @@
       - uuid-dev
     state: present
 
+- name: Verify pkg-config and paths before build
+  shell: |
+    set -e
+    echo "Checking pkg-config path..."
+    echo $PKG_CONFIG_PATH
+    find /usr/lib -name gpgme.pc || true
+    find /usr/lib -name glib-2.0.pc || true
+    export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+    pkg-config --exists gpgme glib-2.0 gnutls || echo "One of them is missing"
+  args: { executable: /bin/bash }   
+
 - name: Download + verify gvm-libs
   shell: |
     set -e
@@ -88,13 +99,18 @@
 - name: Build & install gvm-libs
   shell: |
     set -e
+    export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
     mkdir -p {{ build_dir }}/gvm-libs
-    cmake -S {{ source_dir }}/gvm-libs-{{ gvm_libs_version }} -B {{ build_dir }}/gvm-libs -DCMAKE_INSTALL_PREFIX={{ install_prefix }} -DCMAKE_BUILD_TYPE=Release -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var
+    cmake -S {{ source_dir }}/gvm-libs-{{ gvm_libs_version }} -B {{ build_dir }}/gvm-libs \
+      -DCMAKE_INSTALL_PREFIX={{ install_prefix }} \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DSYSCONFDIR=/etc -DLOCALSTATEDIR=/var
     cmake --build {{ build_dir }}/gvm-libs -j$(nproc)
     mkdir -p {{ install_dir }}/gvm-libs && cd {{ build_dir }}/gvm-libs
     make DESTDIR={{ install_dir }}/gvm-libs install
     cp -rv {{ install_dir }}/gvm-libs/* /
   args: { executable: /bin/bash }
+
 
 - name: Install gvmd dependencies
   apt:
