@@ -67,6 +67,8 @@
       - libglib2.0-dev
       - libgnutls28-dev
       - libgpgme-dev
+      - libgpg-error-dev
+      - libassuan-dev
       - libhiredis-dev
       - libnet1-dev
       - libpaho-mqtt-dev
@@ -85,7 +87,7 @@
     find /usr/lib -name glib-2.0.pc || true
     export PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
     pkg-config --exists gpgme glib-2.0 gnutls || echo "One of them is missing"
-  args: { executable: /bin/bash }   
+  args: { executable: /bin/bash }
 
 - name: Download + verify gvm-libs
   shell: |
@@ -110,7 +112,6 @@
     make DESTDIR={{ install_dir }}/gvm-libs install
     cp -rv {{ install_dir }}/gvm-libs/* /
   args: { executable: /bin/bash }
-
 
 - name: Install gvmd dependencies
   apt:
