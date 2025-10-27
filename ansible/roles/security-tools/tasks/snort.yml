@@ -15,7 +15,7 @@
       - flex
       - bison
       - libpcap-dev
-      - libpcre3-dev
+      - libpcre2-dev
       - libluajit-5.1-dev
       - libssl-dev
       - zlib1g-dev
@@ -29,6 +29,11 @@
       - uuid-dev
       - libunwind-dev
       - libhyperscan-dev
+      - asciidoc
+      - dblatex
+      - flatbuffers-dev
+      - source-highlight
+      - w3m
     state: present
     update_cache: yes
 
