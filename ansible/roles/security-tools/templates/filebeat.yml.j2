@@ -6,6 +6,14 @@ filebeat.inputs:
     fields:
       log_source: openvas
     fields_under_root: true
+    
+  - type: log
+    enabled: true
+    paths:
+      - /usr/local/snort3/logs/*
+    fields:
+      log_source: snort
+    fields_under_root: true
 
 output.logstash:
   hosts: ["{{ logstash_host | default('siem.innovatech.internal') }}:5044"]

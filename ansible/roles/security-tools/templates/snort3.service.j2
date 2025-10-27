@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=snort
 Group=snort
-ExecStart={{ snort_install_dir }}/bin/snort -c {{ snort_install_dir }}/etc/snort.lua -i eth0 -A fast
+ExecStart={{ snort_install_dir }}/bin/snort -c {{ snort_install_dir }}/etc/snort.lua -i ens5 -A fast
 Restart=always
 
 [Install]
