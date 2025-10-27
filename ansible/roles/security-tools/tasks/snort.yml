@@ -10,8 +10,7 @@
       - cmake
       - g++
       - make
-      - libdnet-dev
-      - libdumbnet-dev 
+      - libdumbnet-dev
       - flex
       - bison
       - libpcap-dev
@@ -24,18 +23,20 @@
       - git
       - autoconf
       - libtool
-      # optional enhancements
+      # Optional but recommended
       - liblzma-dev
       - uuid-dev
       - libunwind-dev
       - libhyperscan-dev
+      - flatbuffers-dev
+      # Optional for documentation / testing
       - asciidoc
       - dblatex
-      - flatbuffers-dev
       - source-highlight
       - w3m
     state: present
     update_cache: yes
+
 
 # ------------------------------------------------------------
 # BUILD AND INSTALL LIBDAQ
