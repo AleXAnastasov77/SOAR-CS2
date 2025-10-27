@@ -155,8 +155,8 @@ resource "aws_security_group" "securitytools_sg" {
   }
   ingress {
     description = "OpenVAS"
-    from_port   = 9390
-    to_port     = 9390
+    from_port   = 9392
+    to_port     = 9392
     protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
@@ -269,7 +269,7 @@ resource "aws_security_group" "SIEM_sg" {
     description = "Wazuh Manager"
     from_port   = 1514
     to_port     = 1514
-    protocol    = "udp"
+    protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16", "10.100.0.0/16"]
   }
   ingress {
@@ -356,4 +356,11 @@ resource "aws_route53_record" "SIEM" {
   type    = "A"
   ttl     = 300
   records = [aws_instance.SIEM_instance.private_ip]
+}
+resource "aws_route53_record" "security" {
+  zone_id = aws_route53_zone.private.zone_id
+  name    = "security.innovatech.internal"
+  type    = "A"
+  ttl     = 300
+  records = [aws_instance.Security_Tools_instance.private_ip]
 }

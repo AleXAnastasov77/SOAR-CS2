@@ -37,6 +37,7 @@ resource "aws_instance" "sample_endpoint" {
   subnet_id              = aws_subnet.public_cs2.id
   private_ip             = "10.0.1.10"
   key_name               = "ansible-keypair"
+  user_data              = file("wazuhagents.sh")
   tags = {
     Name = "Sample Endpoint"
   }
