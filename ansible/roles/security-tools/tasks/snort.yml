@@ -28,7 +28,7 @@
       - uuid-dev
       - libunwind-dev
       - libhyperscan-dev
-      - flatbuffers-dev
+      - libflatbuffers-dev
       # Optional for documentation / testing
       - asciidoc
       - dblatex
