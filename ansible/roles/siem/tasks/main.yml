@@ -144,14 +144,21 @@
       changed_when: "'Plugin installation was successful' in wazuh_plugin_install.stdout"
       notify: restart kibana
 
-
+- name: Ensure required directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/logstash/conf.d
+    - /etc/logstash/patterns
 - name: Copy removelf.py script
   ansible.builtin.template:
     src: removelf.py.j2
     dest: /home/ubuntu/removelf.py
     owner: ubuntu
     group: ubuntu
-    mode: '0755'
+    mode: "0755"
 
 # --- Copy Logstash configuration ---
 - name: Copy openvas.conf to Logstash conf.d
@@ -160,7 +167,7 @@
     dest: /etc/logstash/conf.d/openvas.conf
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   notify: restart logstash
 
 # --- Copy systemd service ---
@@ -170,18 +177,18 @@
     dest: /etc/systemd/system/removelf.service
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 - name: Deploy snort_patterns file
   ansible.builtin.template:
     src: snort_patterns.j2
     dest: /etc/logstash/patterns/snort_patterns
-    mode: '0644'
+    mode: "0644"
 
 - name: Deploy snort.conf
   ansible.builtin.template:
     src: snort.conf.j2
     dest: /etc/logstash/conf.d/snort.conf
-    mode: '0644'
+    mode: "0644"
   notify: restart logstash
 - name: Reload systemd daemon
   ansible.builtin.command: systemctl daemon-reload
