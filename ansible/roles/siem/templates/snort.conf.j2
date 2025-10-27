@@ -1,0 +1,22 @@
+input {
+  beats {
+    port => 5044
+  }
+}
+
+filter {
+  grok {
+    patterns_dir => ["/etc/logstash/patterns"]
+    match => {
+      "message" => "%{TIMESTMP:time}%{SPACE}%{CODE}%{SPACE}\[%{NOTSPACE:sid}\]%{TEXT:messagef}%{SPACE}%{CODE}%{SPACE}\[%{PRIORITY:prio}\]%{SPACE}\{%{NOTSPACE:proto}\}%{SPACE}%{IP:srcip}%{DIR:direction}%{IP:dstip}"
+    }
+    overwrite => ["message"]
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://siem.innovatech.internal:9200"]
+    index => "snort-%{+YYYY.MM.dd}"
+  }
+}

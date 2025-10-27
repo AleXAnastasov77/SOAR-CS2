@@ -171,7 +171,18 @@
     owner: root
     group: root
     mode: '0644'
+- name: Deploy snort_patterns file
+  ansible.builtin.template:
+    src: snort_patterns.j2
+    dest: /etc/logstash/patterns/snort_patterns
+    mode: '0644'
 
+- name: Deploy snort.conf
+  ansible.builtin.template:
+    src: snort.conf.j2
+    dest: /etc/logstash/conf.d/snort.conf
+    mode: '0644'
+  notify: restart logstash
 - name: Reload systemd daemon
   ansible.builtin.command: systemctl daemon-reload
 
