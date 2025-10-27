@@ -11,6 +11,7 @@
       - g++
       - make
       - libdnet-dev
+      - libdumbnet-dev 
       - flex
       - bison
       - libpcap-dev
