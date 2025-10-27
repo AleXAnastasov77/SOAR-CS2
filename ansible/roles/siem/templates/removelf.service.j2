@@ -1,0 +1,11 @@
+[Unit]
+Description=Remove lf Openvas report service
+After=multi-user.target
+[Service]
+Type=exec
+WorkingDirectory=/home/ubuntu/
+User=ubuntu
+ExecStart=/usr/bin/python3 /home/ubuntu/removelf.py
+Restart=always
+[Install]
+WantedBy=multi-user.target

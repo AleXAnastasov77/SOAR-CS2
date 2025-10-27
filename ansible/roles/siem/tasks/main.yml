@@ -143,3 +143,31 @@
       register: wazuh_plugin_install
       changed_when: "'Plugin installation was successful' in wazuh_plugin_install.stdout"
       notify: restart kibana
+
+
+- name: Copy removelf.py script
+  ansible.builtin.template:
+    src: removelf.py.j2
+    dest: /home/ubuntu/removelf.py
+    owner: ubuntu
+    group: ubuntu
+    mode: '0755'
+
+# --- Copy Logstash configuration ---
+- name: Copy openvas.conf to Logstash conf.d
+  ansible.builtin.template:
+    src: openvas.conf.j2
+    dest: /etc/logstash/conf.d/openvas.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: restart logstash
+
+# --- Copy systemd service ---
+- name: Copy removelf.service file
+  ansible.builtin.template:
+    src: removelf.service.j2
+    dest: /etc/systemd/system/removelf.service
+    owner: root
+    group: root
+    mode: '0644'
