@@ -1,5 +1,5 @@
 resource "aws_instance" "Security_Tools_instance" {
-  ami                    = "soar-security-tools-1761149231"
+  ami                    = "ami-0278c8963492d0ca6"
   instance_type          = "t3.large"
   vpc_security_group_ids = [aws_security_group.securitytools_sg.id]
   subnet_id              = aws_subnet.privateSecurityTools_cs2.id
