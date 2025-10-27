@@ -130,15 +130,31 @@
     - "{{ snort_install_dir }}/logs"
     - "{{ snort_install_dir }}/lib/snort_dynamicrules"
 
-# Copy default Lua configuration template (Snort 3 puts these in lua/)
-- name: Copy all Snort default configuration files
-  ansible.builtin.copy:
-    src: "{{ build_dir }}/snort3/etc/"
-    dest: "{{ snort_install_dir }}/etc/"
-    remote_src: yes
-    owner: snort
-    group: snort
-    mode: "0644"
+
+# - name: Ensure Snort etc directory exists
+#   ansible.builtin.file:
+#     path: "{{ snort_install_dir }}/etc"
+#     state: directory
+#     owner: snort
+#     group: snort
+#     mode: "0755"
+
+# - name: Check if Snort configuration files already exist
+#   ansible.builtin.find:
+#     paths: "{{ snort_install_dir }}/etc"
+#     patterns: "*.lua"
+#   register: snort_config_files
+
+# - name: Copy Snort default Lua configs (only if missing)
+#   ansible.builtin.copy:
+#     src: "{{ build_dir }}/snort3/lua/"
+#     dest: "{{ snort_install_dir }}/etc/"
+#     remote_src: yes
+#     owner: snort
+#     group: snort
+#     mode: "0644"
+#   when: snort_config_files.matched == 0
+#   ignore_errors: yes
 
 
 # Make sure Snort knows where to find these Lua files

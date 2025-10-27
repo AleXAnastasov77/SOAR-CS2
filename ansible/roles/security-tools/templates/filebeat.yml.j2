@@ -2,14 +2,6 @@ filebeat.inputs:
   - type: log
     enabled: true
     paths:
-      - /var/lib/openvas/reports/*.xml
-    fields:
-      log_source: openvas
-    fields_under_root: true
-    
-  - type: log
-    enabled: true
-    paths:
       - /usr/local/snort3/logs/*
     fields:
       log_source: snort
