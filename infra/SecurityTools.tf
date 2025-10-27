@@ -10,7 +10,7 @@ resource "aws_instance" "Security_Tools_instance" {
   }
   root_block_device {
     encrypted   = true
-    volume_size = 50
+    volume_size = 60
     volume_type = "gp3"
   }
   metadata_options {
