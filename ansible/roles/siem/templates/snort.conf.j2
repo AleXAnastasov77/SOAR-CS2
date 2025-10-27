@@ -1,3 +1,4 @@
+{% raw %}
 input {
   beats {
     port => 5044
@@ -16,7 +17,8 @@ filter {
 
 output {
   elasticsearch {
-    hosts => ["http://siem.innovatech.internal:9200"]
+    hosts => ["http://{{ elk_host }}:9200"]
     index => "snort-%{+YYYY.MM.dd}"
   }
 }
+{% endraw %}
