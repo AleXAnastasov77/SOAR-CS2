@@ -171,3 +171,12 @@
     owner: root
     group: root
     mode: '0644'
+
+- name: Reload systemd daemon
+  ansible.builtin.command: systemctl daemon-reload
+
+- name: Enable removelf service
+  ansible.builtin.systemd:
+    name: removelf.service
+    enabled: true
+    state: started
