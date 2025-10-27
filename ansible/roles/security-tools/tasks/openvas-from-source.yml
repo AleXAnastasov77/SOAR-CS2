@@ -559,6 +559,17 @@
       - gnupg
     state: present
     update_cache: yes
+- name: Add Elastic GPG key
+  ansible.builtin.shell: |
+    curl -fsSL https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor | sudo tee /usr/share/keyrings/elastic-keyring.gpg > /dev/null
+  args:
+    creates: /usr/share/keyrings/elastic-keyring.gpg
+
+- name: Add Elastic APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/elastic-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main"
+    filename: "elastic-8.x"
+    state: present
 - name: Install Filebeat
   ansible.builtin.apt:
     name: filebeat
