@@ -1,4 +1,9 @@
 ---
-# Aggregate entrypoint for security-tools role
-- name: Install and configure OpenVAS (GVM) from source
-  ansible.builtin.include_tasks: openvas-from-source.yml
+- import_tasks: openvas-from-source.yml
+  tags: security
+
+- import_tasks: snort.yml
+  tags: snort
+
+- import_tasks: filebeat.yml
+  tags: filebeat

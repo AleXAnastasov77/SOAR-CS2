@@ -381,7 +381,6 @@
 - name: Build openvasd and scannerctl
   shell: |
     set -e
-    export PATH="$HOME/.cargo/bin:$PATH"
     mkdir -p {{ install_dir }}/openvasd/usr/local/bin
     cd {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}/rust/src/openvasd
     cargo build --release
@@ -494,13 +493,15 @@
     enabled: yes
 
 - name: Create gvm DB user and database
-  become_user: postgres
   shell: |
     set -e
-    createuser -DRS gvm || true
-    createdb -O gvm gvmd || true
-    psql gvmd -c "create role dba with superuser noinherit; grant dba to gvm;" || true
-  args: { executable: /bin/bash }
+    sudo -u postgres bash -c "
+      createuser -DRS gvm || true
+      createdb -O gvm gvmd || true
+      psql gvmd -c \"create role dba with superuser noinherit; grant dba to gvm;\" || true
+    "
+  args:
+    executable: /bin/bash
 
 - name: Create admin user with provided password (admin/admin) right after DB
   shell: |
@@ -549,3 +550,30 @@
     - gvmd
     - gsad
     - openvasd
+# FILEBEAT
+- name: Ensure dependencies are installed
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - curl
+      - gnupg
+    state: present
+    update_cache: yes
+- name: Install Filebeat
+  ansible.builtin.apt:
+    name: filebeat
+    state: present
+    update_cache: yes
+
+- name: Deploy Filebeat configuration
+  ansible.builtin.template:
+    src: filebeat.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    mode: "0644"
+  notify: restart filebeat
+
+- name: Enable and start Filebeat service
+  ansible.builtin.systemd:
+    name: filebeat
+    enabled: yes
+    state: started
