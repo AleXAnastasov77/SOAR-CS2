@@ -13,6 +13,7 @@
       - software-properties-common
       - net-tools
       - lsb-release
+      - python3-pandas
     state: present
     update_cache: yes
 

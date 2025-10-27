@@ -38,12 +38,12 @@ source "amazon-ebs" "security-tools" {
 #     owners      = ["self"]
 #     most_recent = true
 #   }
-#   launch_block_device_mappings {
-#     device_name           = "/dev/sda1"
-#     volume_size           = 60
-#     volume_type           = "gp3"
-#     delete_on_termination = true
-#   }
+  launch_block_device_mappings {
+    device_name           = "/dev/sda1"
+    volume_size           = 60
+    volume_type           = "gp3"
+    delete_on_termination = true
+  }
 }
 
 build {
