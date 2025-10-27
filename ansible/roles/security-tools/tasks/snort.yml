@@ -130,32 +130,23 @@
     - "{{ snort_install_dir }}/logs"
     - "{{ snort_install_dir }}/lib/snort_dynamicrules"
 
+- name: Copy Snort default Lua configs
+  ansible.builtin.copy:
+    src: "{{ build_dir }}/snort3/lua/"
+    dest: "{{ snort_install_dir }}/etc/"
+    remote_src: yes
+    owner: snort
+    group: snort
+    mode: "0644"
 
-# - name: Ensure Snort etc directory exists
-#   ansible.builtin.file:
-#     path: "{{ snort_install_dir }}/etc"
-#     state: directory
-#     owner: snort
-#     group: snort
-#     mode: "0755"
+- name: Ensure DAQ library path is configured
+  ansible.builtin.copy:
+    dest: /etc/ld.so.conf.d/libdaq3.conf
+    content: "{{ daq_install_dir }}/lib/"
+    mode: "0644"
 
-# - name: Check if Snort configuration files already exist
-#   ansible.builtin.find:
-#     paths: "{{ snort_install_dir }}/etc"
-#     patterns: "*.lua"
-#   register: snort_config_files
-
-# - name: Copy Snort default Lua configs (only if missing)
-#   ansible.builtin.copy:
-#     src: "{{ build_dir }}/snort3/lua/"
-#     dest: "{{ snort_install_dir }}/etc/"
-#     remote_src: yes
-#     owner: snort
-#     group: snort
-#     mode: "0644"
-#   when: snort_config_files.matched == 0
-#   ignore_errors: yes
-
+- name: Reload dynamic linker
+  ansible.builtin.command: ldconfig
 
 # Make sure Snort knows where to find these Lua files
 - name: Add SNORT_LUA_PATH environment variable
@@ -213,9 +204,12 @@
 
 - name: Validate Snort configuration
   ansible.builtin.command: >
-    {{ snort_install_dir }}/bin/snort -c {{ snort_install_dir }}/etc/snort.lua
+    {{ snort_install_dir }}/bin/snort
+    -c {{ snort_install_dir }}/etc/snort.lua
+    --daq-dir {{ daq_install_dir }}/lib/daq
   register: snort_config_check
   ignore_errors: yes
+
 
 - name: Display configuration validation result
   ansible.builtin.debug:
