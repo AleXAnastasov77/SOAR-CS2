@@ -16,16 +16,26 @@ variable "aws_region" { default = "eu-central-1" }
 source "amazon-ebs" "security-tools" {
   region                  = var.aws_region
   instance_type           = "t3.large"
-  ami_name                = "soar-security-tools-{{timestamp}}"
+  #ami_name                = "soar-security-tools-{{timestamp}}"
+  ami_name                = "soar-security-tools-full-{{timestamp}}"
   ssh_username            = "ubuntu"
-
+  
+  # source_ami_filter {
+  #   filters = {
+  #     name                = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+  #     root-device-type    = "ebs"
+  #     virtualization-type  = "hvm"
+  #   }
+  #   owners      = ["099720109477"]
+  #   most_recent = true
+  # }
   source_ami_filter {
     filters = {
-      name                = "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+      name                = "soar-security-tools-*"
       root-device-type    = "ebs"
       virtualization-type  = "hvm"
     }
-    owners      = ["099720109477"]
+    owners      = ["self"]
     most_recent = true
   }
   launch_block_device_mappings {
@@ -42,7 +52,8 @@ build {
 
   provisioner "ansible" {
     playbook_file = "../ansible/main.yml"
-    extra_arguments = ["--tags", "security"]
+    #extra_arguments = ["--tags", "security"]
+    extra_arguments = ["--tags", "snort,filebeat"]
     ansible_env_vars = [
     "ANSIBLE_ROLES_PATH=../ansible/roles",
     "ANSIBLE_REMOTE_TEMP=/tmp/.ansible/tmp",

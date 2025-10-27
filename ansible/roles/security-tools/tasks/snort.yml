@@ -1,9 +1,9 @@
 ---
 # ============================================================
-# SNORT 3 INSTALLATION FROM SOURCE (based on official guide)
+# SNORT 3 INSTALLATION + CONFIGURATION (Official + Uni Guide)
 # ============================================================
 
-- name: Ensure required dependencies are installed
+- name: Install all required dependencies
   ansible.builtin.apt:
     name:
       - build-essential
@@ -23,7 +23,7 @@
       - git
       - autoconf
       - libtool
-      # Optional but beneficial packages
+      # optional enhancements
       - liblzma-dev
       - uuid-dev
       - libunwind-dev
@@ -32,17 +32,14 @@
     update_cache: yes
 
 # ------------------------------------------------------------
-# CREATE BUILD DIRECTORIES
+# BUILD AND INSTALL LIBDAQ
 # ------------------------------------------------------------
-- name: Create build directory structure
+- name: Create build directory
   ansible.builtin.file:
     path: "{{ build_dir }}"
     state: directory
     mode: "0755"
 
-# ------------------------------------------------------------
-# BUILD AND INSTALL LIBDAQ
-# ------------------------------------------------------------
 - name: Clone LibDAQ repository
   ansible.builtin.git:
     repo: "https://github.com/snort3/libdaq.git"
@@ -71,7 +68,8 @@
     mode: "0644"
 
 - name: Refresh dynamic linker bindings
-  ansible.builtin.command: ldconfig
+  ansible.builtin.command: /sbin/ldconfig
+  changed_when: false
 
 # ------------------------------------------------------------
 # BUILD AND INSTALL SNORT 3
@@ -102,9 +100,73 @@
     chdir: "{{ build_dir }}/snort3/build"
 
 # ------------------------------------------------------------
+# POST-INSTALL CONFIGURATION
+# ------------------------------------------------------------
+- name: Create snort group and user
+  ansible.builtin.user:
+    name: snort
+    shell: /sbin/nologin
+    comment: "Snort IDS service account"
+    system: yes
+
+- name: Create configuration and log directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: snort
+    group: snort
+    mode: "0755"
+  loop:
+    - "{{ snort_install_dir }}/etc"
+    - "{{ snort_install_dir }}/rules"
+    - "{{ snort_install_dir }}/logs"
+    - "{{ snort_install_dir }}/lib/snort_dynamicrules"
+
+- name: Copy default configuration
+  ansible.builtin.copy:
+    src: "{{ snort_install_dir }}/etc/snort_defaults.lua"
+    dest: "{{ snort_install_dir }}/etc/snort.lua"
+    remote_src: yes
+    owner: snort
+    group: snort
+    mode: "0644"
+
+# ------------------------------------------------------------
+# DOWNLOAD RULES
+# ------------------------------------------------------------
+- name: Download community rules
+  ansible.builtin.get_url:
+    url: https://www.snort.org/downloads/community/snort3-community-rules.tar.gz
+    dest: /tmp/snort3-community-rules.tar.gz
+
+- name: Extract community rules
+  ansible.builtin.unarchive:
+    src: /tmp/snort3-community-rules.tar.gz
+    dest: "{{ snort_install_dir }}/rules"
+    remote_src: yes
+    extra_opts: ["--strip-components=1"]
+    owner: snort
+    group: snort
+
+# ------------------------------------------------------------
+# SYSTEMD SERVICE
+# ------------------------------------------------------------
+- name: Deploy Snort 3 systemd service
+  ansible.builtin.template:
+    src: snort3.service.j2
+    dest: /etc/systemd/system/snort3.service
+    mode: "0644"
+
+- name: Enable and start snort3 service
+  ansible.builtin.systemd:
+    name: snort3
+    enabled: yes
+    state: started
+
+# ------------------------------------------------------------
 # VERIFICATION
 # ------------------------------------------------------------
-- name: Verify Snort installation version
+- name: Check Snort version
   ansible.builtin.command: "{{ snort_install_dir }}/bin/snort -V"
   register: snort_version_output
   ignore_errors: yes

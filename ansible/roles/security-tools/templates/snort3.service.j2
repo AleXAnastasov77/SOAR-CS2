@@ -1,0 +1,13 @@
+[Unit]
+Description=Snort 3 Network IDS
+After=network.target
+
+[Service]
+Type=simple
+User=snort
+Group=snort
+ExecStart={{ snort_install_dir }}/bin/snort -c {{ snort_install_dir }}/etc/snort.lua -i eth0 -A fast
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
