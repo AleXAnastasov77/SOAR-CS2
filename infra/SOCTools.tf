@@ -3,7 +3,7 @@ resource "aws_instance" "Security_Tools_instance" {
   instance_type          = "t3.large"
   vpc_security_group_ids = [aws_security_group.securitytools_sg.id]
   subnet_id              = aws_subnet.privateSecurityTools_cs2.id
-  private_ip             = "10.0.11.1"
+  private_ip             = "10.0.11.10"
   key_name               = "ansible-keypair"
   tags = {
     Name = "Security Tools Server"

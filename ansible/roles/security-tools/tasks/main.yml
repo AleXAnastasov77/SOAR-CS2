@@ -1,9 +1,7 @@
 ---
 - import_tasks: openvas-from-source.yml
-  tags: security
-
+  tags: ["security", "openvas"]
 - import_tasks: snort.yml
-  tags: snort
-
+  tags: ["security", "snort"]
 - import_tasks: filebeat.yml
-  tags: filebeat
+  tags: ["security", "filebeat"]
