@@ -97,7 +97,7 @@
     chdir: "{{ build_dir }}/snort3"
 
 - name: Compile Snort 3
-  ansible.builtin.command: make -j $(nproc)
+  ansible.builtin.shell: make -j $(nproc)
   args:
     chdir: "{{ build_dir }}/snort3/build"
 
