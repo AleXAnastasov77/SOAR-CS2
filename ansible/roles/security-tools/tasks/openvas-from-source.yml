@@ -52,6 +52,20 @@
       - libpsl-dev
       - librtmp-dev
     state: present
+- name: Build and install latest libcurl from source
+  shell: |
+    set -e
+    cd /usr/local/src || mkdir -p /usr/local/src && cd /usr/local/src
+    curl -sLO https://curl.se/download/curl-8.10.1.tar.gz
+    tar -xzf curl-8.10.1.tar.gz
+    cd curl-8.10.1
+    ./configure --with-ssl --enable-ipv6 --enable-unix-sockets --with-nghttp2 --prefix=/usr/local
+    make -j$(nproc)
+    make install
+    ldconfig
+    pkg-config --modversion libcurl
+  args:
+    executable: /bin/bash
 
 - name: Download Greenbone Community Signing key
   get_url:
