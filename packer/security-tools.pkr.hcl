@@ -44,7 +44,7 @@ source "amazon-ebs" "security-tools" {
 #     volume_type           = "gp3"
 #     delete_on_termination = true
 #   }
-# }
+}
 
 build {
   name    = "security-tools-image"
@@ -53,7 +53,7 @@ build {
   provisioner "ansible" {
     playbook_file = "../ansible/main.yml"
     #extra_arguments = ["--tags", "security"]
-    extra_arguments = ["--tags", "security, snort, filebeat"]
+    extra_arguments = ["--tags", "security,snort,filebeat,openvas"]
     ansible_env_vars = [
     "ANSIBLE_ROLES_PATH=../ansible/roles",
     "ANSIBLE_REMOTE_TEMP=/tmp/.ansible/tmp",
