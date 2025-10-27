@@ -1,0 +1,126 @@
+---
+# ============================================================
+# SNORT 3 INSTALLATION FROM SOURCE (based on official guide)
+# ============================================================
+
+- name: Ensure required dependencies are installed
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - cmake
+      - g++
+      - make
+      - libdnet-dev
+      - flex
+      - bison
+      - libpcap-dev
+      - libpcre3-dev
+      - libluajit-5.1-dev
+      - libssl-dev
+      - zlib1g-dev
+      - libhwloc-dev
+      - pkg-config
+      - git
+      - autoconf
+      - libtool
+      # Optional but beneficial packages
+      - liblzma-dev
+      - uuid-dev
+      - libunwind-dev
+      - libhyperscan-dev
+    state: present
+    update_cache: yes
+
+# ------------------------------------------------------------
+# CREATE BUILD DIRECTORIES
+# ------------------------------------------------------------
+- name: Create build directory structure
+  ansible.builtin.file:
+    path: "{{ build_dir }}"
+    state: directory
+    mode: "0755"
+
+# ------------------------------------------------------------
+# BUILD AND INSTALL LIBDAQ
+# ------------------------------------------------------------
+- name: Clone LibDAQ repository
+  ansible.builtin.git:
+    repo: "https://github.com/snort3/libdaq.git"
+    dest: "{{ build_dir }}/libdaq"
+    version: master
+
+- name: Bootstrap LibDAQ
+  ansible.builtin.command: ./bootstrap
+  args:
+    chdir: "{{ build_dir }}/libdaq"
+
+- name: Configure LibDAQ
+  ansible.builtin.command: ./configure --prefix={{ daq_install_dir }}
+  args:
+    chdir: "{{ build_dir }}/libdaq"
+
+- name: Build and install LibDAQ
+  ansible.builtin.command: make install
+  args:
+    chdir: "{{ build_dir }}/libdaq"
+
+- name: Add DAQ library path to ld.so.conf.d
+  ansible.builtin.copy:
+    dest: /etc/ld.so.conf.d/libdaq3.conf
+    content: "{{ daq_install_dir }}/lib/\n"
+    mode: "0644"
+
+- name: Refresh dynamic linker bindings
+  ansible.builtin.command: ldconfig
+
+# ------------------------------------------------------------
+# BUILD AND INSTALL SNORT 3
+# ------------------------------------------------------------
+- name: Clone Snort 3 repository
+  ansible.builtin.git:
+    repo: "https://github.com/snort3/snort3.git"
+    dest: "{{ build_dir }}/snort3"
+    version: master
+
+- name: Configure Snort 3 with DAQ paths
+  ansible.builtin.command: >
+    ./configure_cmake.sh
+    --prefix={{ snort_install_dir }}
+    --with-daq-includes={{ daq_install_dir }}/include/
+    --with-daq-libraries={{ daq_install_dir }}/lib/
+  args:
+    chdir: "{{ build_dir }}/snort3"
+
+- name: Compile Snort 3
+  ansible.builtin.command: make -j $(nproc)
+  args:
+    chdir: "{{ build_dir }}/snort3/build"
+
+- name: Install Snort 3
+  ansible.builtin.command: make install
+  args:
+    chdir: "{{ build_dir }}/snort3/build"
+
+# ------------------------------------------------------------
+# VERIFICATION
+# ------------------------------------------------------------
+- name: Verify Snort installation version
+  ansible.builtin.command: "{{ snort_install_dir }}/bin/snort -V"
+  register: snort_version_output
+  ignore_errors: yes
+
+- name: Display Snort version info
+  ansible.builtin.debug:
+    var: snort_version_output.stdout
+
+- name: Verify DAQ modules
+  ansible.builtin.command: >
+    {{ snort_install_dir }}/bin/snort
+    --daq-dir {{ daq_install_dir }}/lib/daq
+    --daq-list
+  register: daq_modules_output
+  ignore_errors: yes
+
+- name: Display DAQ modules
+  ansible.builtin.debug:
+    var: daq_modules_output.stdout

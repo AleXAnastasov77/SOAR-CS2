@@ -18,3 +18,5 @@ gsad_listen_addr: "0.0.0.0"
 gsad_port: 9392
 greenbone_signing_key_url: "https://www.greenbone.net/GBCommunitySigningKey.asc"
 greenbone_signing_key_fpr_trust: "8AE4BE429B60A59B311C2E739823FAA60ED1E580:6:"
+daq_install_dir: /usr/local/lib/daq_s3
+snort_install_dir: /usr/local/snort3

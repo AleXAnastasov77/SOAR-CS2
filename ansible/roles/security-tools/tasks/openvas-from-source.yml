@@ -381,6 +381,7 @@
 - name: Build openvasd and scannerctl
   shell: |
     set -e
+    export PATH="$PATH:/root/.cargo/bin"
     mkdir -p {{ install_dir }}/openvasd/usr/local/bin
     cd {{ source_dir }}/openvas-scanner-{{ openvas_daemon_version }}/rust/src/openvasd
     cargo build --release
