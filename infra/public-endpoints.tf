@@ -17,15 +17,15 @@ resource "aws_instance" "nat_gw_instance" {
     encrypted = true
   }
 }
-resource "aws_network_interface" "nat_private" {
-  subnet_id       = aws_subnet.privateSIEM_cs2.id
-  private_ips     = ["10.0.10.5"]
-  security_groups = [aws_security_group.SIEM_sg.id]
-  attachment {
-    instance     = aws_instance.nat_gw_instance.id
-    device_index = 1
-  }
-}
+# resource "aws_network_interface" "nat_private" {
+#   subnet_id       = aws_subnet.privateSIEM_cs2.id
+#   private_ips     = ["10.0.10.5"]
+#   security_groups = [aws_security_group.SIEM_sg.id]
+#   attachment {
+#     instance     = aws_instance.nat_gw_instance.id
+#     device_index = 1
+#   }
+# }
 
 
 # ////////////////////// SAMPLE ENDPOINT //////////////////////////
