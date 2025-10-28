@@ -1,5 +1,5 @@
 resource "aws_instance" "Security_Tools_instance" {
-  ami                    = data.aws_ssm_parameter.siem_ami.value
+  ami                    = data.aws_ssm_parameter.security_ami.value
   instance_type          = "t3.large"
   vpc_security_group_ids = [aws_security_group.securitytools_sg.id]
   subnet_id              = aws_subnet.privateSecurityTools_cs2.id
