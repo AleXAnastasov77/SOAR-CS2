@@ -80,8 +80,9 @@ resource "aws_route_table" "rt_private_cs2" {
   vpc_id = aws_vpc.vpc_cs2.id
 
   route {
-    cidr_block           = "0.0.0.0/0"
-    network_interface_id = aws_instance.nat_gw_instance.primary_network_interface_id
+    cidr_block = "0.0.0.0/0"
+    #network_interface_id = aws_instance.nat_gw_instance.primary_network_interface_id
+    network_interface_id = aws_network_interface.nat_private.id
   }
   tags = {
     Name = "rt_private_cs2"
