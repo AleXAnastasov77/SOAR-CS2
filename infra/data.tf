@@ -26,3 +26,6 @@ data "aws_acm_certificate" "cert" {
 data "aws_ssm_parameter" "siem_ami" {
   name = "/soar/ami/siem"
 }
+data "aws_ssm_parameter" "security_ami" {
+  name = "/soar/ami/security-tools"
+}
