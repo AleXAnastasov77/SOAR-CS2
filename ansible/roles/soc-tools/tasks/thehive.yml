@@ -114,9 +114,9 @@
     port: 9042
     delay: 20
     timeout: 240
-    
+
 - name: Wait until Cassandra accepts CQL connections
-  shell: "cqlsh -e 'DESCRIBE KEYSPACES;'"
+  shell: "cqlsh -u cassandra -p cassandra -e 'DESCRIBE KEYSPACES;'"
   register: cassandra_ready
   retries: 10
   delay: 20
