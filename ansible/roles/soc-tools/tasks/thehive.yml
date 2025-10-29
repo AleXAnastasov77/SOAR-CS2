@@ -114,11 +114,20 @@
     port: 9042
     delay: 20
     timeout: 240
+    
+- name: Wait until Cassandra accepts CQL connections
+  shell: "cqlsh -e 'DESCRIBE KEYSPACES;'"
+  register: cassandra_ready
+  retries: 10
+  delay: 20
+  until: cassandra_ready.rc == 0
 
 - name: Set Cassandra admin password
-  shell: |
-    cqlsh -u cassandra -p cassandra -e "ALTER USER cassandra WITH PASSWORD 'AdminCassandra123';"
-  ignore_errors: true
+  shell: "cqlsh -u cassandra -p cassandra -e \"ALTER USER cassandra WITH PASSWORD 'AdminCassandra123';\""
+  register: cassandra_pwd
+  retries: 3
+  delay: 20
+  until: cassandra_pwd.rc == 0
 
 - name: Create keyspace and role for TheHive
   shell: |
