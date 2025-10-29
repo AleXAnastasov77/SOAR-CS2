@@ -364,7 +364,7 @@ resource "aws_route53_record" "security" {
   ttl     = 300
   records = [aws_instance.Security_Tools_instance.private_ip]
 }
-resource "aws_route53_record" "security" {
+resource "aws_route53_record" "soc" {
   zone_id = aws_route53_zone.private.zone_id
   name    = "soc.innovatech.internal"
   type    = "A"
