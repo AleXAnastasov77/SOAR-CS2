@@ -1,0 +1,54 @@
+# TheHive application configuration
+
+application.baseUrl = "http://soc.innovatech.internal:9000"
+play.http.context = "/"
+
+db.janusgraph {
+  storage {
+    backend = cql
+    hostname = ["127.0.0.1"]
+    username = "thehive"
+    password = "{{ thehive_role_password }}"
+    cql {
+      keyspace = thehive
+    }
+  }
+  index.search {
+    backend = elasticsearch
+    hostname = ["siem.innovatech.internal"]
+    index-name = thehive
+    # elasticsearch {
+    #   http {
+    #     auth {
+    #       type = basic
+    #       basic {
+    #         username = "thehive"
+    #         password = "{{ thehive_es_password }}"
+    #       }
+    #     }
+    #   }
+    # }
+  }
+}
+
+audit {
+  storage = elasticsearch
+  elasticsearch {
+    hot.rollover {
+      maxAge = 1d
+      maxSize = 1g
+    }
+    delete.minAge = 7d
+  }
+}
+
+storage {
+  provider: localfs
+  path: /opt/thp/thehive/files
+}
+
+auth {
+  providers: [local]
+}
+# Disable unused connectors
+scalligraph.disabledModules += org.thp.thehive.connector.cortex.CortexModule

@@ -1,0 +1,4 @@
+---
+- import_tasks: misp.yml
+- import_tasks: thehive.yml
+
