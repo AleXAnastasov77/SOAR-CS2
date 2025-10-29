@@ -65,29 +65,43 @@
     name: cassandra
     update_cache: yes
     state: present
-- name: Ensure Cassandra data directory has correct permissions
-  ansible.builtin.file:
-    path: "/var/lib/cassandra"
-    owner: cassandra
-    group: cassandra
-    state: directory
-    mode: "0755"
-    recurse: yes
 
 - name: Configure cassandra.yaml
   lineinfile:
     path: /etc/cassandra/cassandra.yaml
-    regexp: '^cluster_name:'
+    regexp: "^cluster_name:"
     line: "cluster_name: 'thp'"
     backrefs: yes
 
-- name: Enable Cassandra authentication
-  blockinfile:
+- name: Enable Cassandra PasswordAuthenticator
+  replace:
     path: /etc/cassandra/cassandra.yaml
-    block: |
-      authenticator: PasswordAuthenticator
-      authorizer: CassandraAuthorizer
+    regexp: "^authenticator:.*"
+    replace: "authenticator: PasswordAuthenticator"
 
+- name: Enable CassandraAuthorizer
+  replace:
+    path: /etc/cassandra/cassandra.yaml
+    regexp: "^authorizer:.*"
+    replace: "authorizer: CassandraAuthorizer"
+- name: Stop Cassandra service
+  ansible.builtin.systemd:
+    name: cassandra
+    state: stopped
+
+- name: Clear Cassandra data directory
+  ansible.builtin.file:
+    path: /var/lib/cassandra
+    state: absent
+
+- name: Recreate Cassandra data directory
+  ansible.builtin.file:
+    path: /var/lib/cassandra
+    state: directory
+    owner: cassandra
+    group: cassandra
+    mode: "0755"
+    recurse: yes
 - name: Restart and enable Cassandra
   systemd:
     name: cassandra
@@ -95,11 +109,11 @@
     state: restarted
 
 # Step 3.4–3.6 (Cassandra user/keyspace creation)
-- name: Wait for Cassandra port
-  wait_for:
-    port: 9042
-    delay: 15
-    timeout: 60
+# - name: Wait for Cassandra port
+#   wait_for:
+#     port: 9042
+#     delay: 15
+#     timeout: 60
 
 - name: Set Cassandra admin password
   shell: |
