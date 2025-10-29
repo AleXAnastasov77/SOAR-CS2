@@ -29,3 +29,7 @@ data "aws_ssm_parameter" "siem_ami" {
 data "aws_ssm_parameter" "security_ami" {
   name = "/soar/ami/security-tools"
 }
+
+data "aws_ssm_parameter" "soc_ami" {
+  name = "/soar/ami/soc-tools"
+}
