@@ -4,4 +4,4 @@
   roles:
     - { role: siem, tags: ["siem"] }
     - { role: security-tools, tags: ["security"] }
-    # - { role: soc-tools, tags: ["soc"] }
+    - { role: soc-tools, tags: ["soc"] }

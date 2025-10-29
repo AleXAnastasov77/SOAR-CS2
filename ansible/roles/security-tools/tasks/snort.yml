@@ -138,6 +138,11 @@
     owner: snort
     group: snort
     mode: "0644"
+- name: Ensure Snort etc directory has correct permissions
+  ansible.builtin.file:
+    path: "{{ snort_install_dir }}/etc"
+    state: directory
+    mode: "0755"
 
 - name: Ensure DAQ library path is configured
   ansible.builtin.copy:
