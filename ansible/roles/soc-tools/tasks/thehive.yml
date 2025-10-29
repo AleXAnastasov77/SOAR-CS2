@@ -68,11 +68,11 @@
 - name: Ensure Cassandra data directory has correct permissions
   ansible.builtin.file:
     path: "/var/lib/cassandra"
-    user: cassandra
+    owner: cassandra
     group: cassandra
     state: directory
     mode: "0755"
-    recruse: yes
+    recurse: yes
 
 - name: Configure cassandra.yaml
   lineinfile:
