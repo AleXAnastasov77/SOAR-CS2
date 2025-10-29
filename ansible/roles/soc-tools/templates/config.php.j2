@@ -1,21 +1,21 @@
 <?php
-$config = array (
-  'MISP' => 
-  array (
-    'baseurl' => 'http://misp.innovatech.internal',
-    'email' => 'admin@misp.local',
-    'org' => 'Innovatech',
-    'showorg' => true,
-    'background_jobs' => false,
-  ),
-  'Database' => 
-  array (
-    'host' => 'localhost',
-    'login' => 'misp',
-    'port' => 3306,
-    'password' => 'MispPass123!',
-    'database' => 'misp',
-    'prefix' => '',
-    'encoding' => 'utf8mb4',
-  ),
+$config = array(
+    'MISP' => array(
+        'baseurl' => 'http://soc.innovatech.internal',
+        'email' => 'admin@misp.local',
+        'org' => 'Innovatech',
+        'showorg' => true,
+        'background_jobs' => false,
+        'live' => true
+    ),
+    'Database' => array(
+        'host' => 'localhost',
+        'login' => 'misp',
+        'port' => 3306,
+        'password' => 'MispPass123!',
+        'database' => 'misp',
+        'prefix' => '',
+        'encoding' => 'utf8mb4',
+    ),
 );
+?>

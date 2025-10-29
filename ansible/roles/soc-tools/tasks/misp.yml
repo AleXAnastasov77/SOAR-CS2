@@ -1,5 +1,7 @@
+---
 # === MISP INSTALLATION (Ubuntu 22.04) ===
 
+# --- Base dependencies ---
 - name: Install MISP dependencies
   apt:
     name:
@@ -26,11 +28,13 @@
       - php-bcmath
       - php-gd
       - php-curl
+      - php-intl
       - libapache2-mod-php
     update_cache: yes
     state: present
 
-- name: Ensure MariaDB and Redis are enabled
+# --- Enable services ---
+- name: Ensure MariaDB and Redis are started and enabled
   systemd:
     name: "{{ item }}"
     state: started
@@ -40,7 +44,7 @@
     - redis-server
 
 # --- Database setup ---
-- name: Secure MariaDB installation
+- name: Create MISP database and user
   shell: |
     mysql -e "CREATE DATABASE IF NOT EXISTS misp;"
     mysql -e "CREATE USER IF NOT EXISTS 'misp'@'localhost' IDENTIFIED BY 'MispPass123!';"
@@ -55,15 +59,35 @@
     version: "2.4"
     force: yes
 
-- name: Set ownership for MISP directory
+- name: Initialize and update MISP submodules
+  shell: |
+    cd /var/www/MISP
+    git submodule update --init --recursive
+  args:
+    chdir: /var/www/MISP
+
+# --- Permissions ---
+- name: Ensure correct ownership for MISP directory
   file:
     path: /var/www/MISP
     owner: www-data
     group: www-data
     recurse: yes
 
-# --- Apache configuration ---
-- name: Create Apache site for MISP
+- name: Ensure tmp and cache directories exist and are writable
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: "0775"
+  loop:
+    - /var/www/MISP/app/tmp
+    - /var/www/MISP/app/tmp/cache
+    - /var/www/MISP/app/tmp/logs
+
+# --- Apache Configuration ---
+- name: Create Apache virtual host for MISP
   copy:
     dest: /etc/apache2/sites-available/misp.conf
     content: |
@@ -82,15 +106,15 @@
           CustomLog ${APACHE_LOG_DIR}/misp_access.log combined
       </VirtualHost>
 
-- name: Enable Apache modules and site
+- name: Enable Apache modules and MISP site
   shell: |
     a2dissite 000-default.conf || true
     a2ensite misp.conf
     a2enmod rewrite
     systemctl reload apache2
 
-# --- MISP Configuration ---
-- name: Copy default MISP config.php
+# --- MISP Configuration Files ---
+- name: Deploy config.php
   template:
     src: config.php.j2
     dest: /var/www/MISP/app/Config/config.php
@@ -98,15 +122,40 @@
     group: www-data
     mode: "0644"
 
-- name: Set correct permissions for MISP files
+- name: Deploy database.php for CakePHP
+  template:
+    src: database.php.j2
+    dest: /var/www/MISP/app/Config/database.php
+    owner: www-data
+    group: www-data
+    mode: "0644"
+
+# --- Permissions fix ---
+- name: Finalize ownership and permissions
   file:
     path: /var/www/MISP
     owner: www-data
     group: www-data
     recurse: yes
 
-- name: Restart Apache to apply MISP configuration
+# --- Restart Apache ---
+- name: Restart Apache service
   systemd:
     name: apache2
     state: restarted
     enabled: yes
+
+# --- Health checks ---
+- name: Wait for Apache to be ready
+  wait_for:
+    host: 127.0.0.1
+    port: 80
+    delay: 5
+    timeout: 30
+
+- name: Verify MISP is reachable
+  uri:
+    url: "http://localhost"
+    return_content: no
+  register: misp_status
+  failed_when: misp_status.status not in [200, 302]
