@@ -108,12 +108,12 @@
     enabled: yes
     state: restarted
 
-# Step 3.4–3.6 (Cassandra user/keyspace creation)
-# - name: Wait for Cassandra port
-#   wait_for:
-#     port: 9042
-#     delay: 15
-#     timeout: 60
+- name: Wait for Cassandra port
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 9042
+    delay: 20
+    timeout: 240
 
 - name: Set Cassandra admin password
   shell: |
