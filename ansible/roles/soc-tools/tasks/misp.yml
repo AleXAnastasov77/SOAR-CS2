@@ -165,12 +165,18 @@
     group: "{{ www_user }}"
     mode: "0755"
 
-- name: Clone MISP repository
-  git:
-    repo: "https://github.com/MISP/MISP.git"
-    dest: "{{ path_to_misp }}"
-    version: "2.4"
-    update: no
+- name: Clone MISP repository and initialize submodules (as www-data)
+  shell: |
+    if [ ! -d "{{ path_to_misp }}/.git" ]; then
+      sudo -u {{ www_user }} git clone --branch 2.4 --depth 1 https://github.com/MISP/MISP.git {{ path_to_misp }}
+    fi
+
+    cd {{ path_to_misp }}
+    sudo -u {{ www_user }} git submodule update --init --recursive --progress
+  args:
+    chdir: /tmp
+    creates: "{{ path_to_misp }}/.git"
+
 
 - name: Initialize MISP submodules
   command: git submodule update --init --recursive
