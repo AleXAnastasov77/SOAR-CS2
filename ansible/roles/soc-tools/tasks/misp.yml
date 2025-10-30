@@ -73,35 +73,3 @@
     mode: "0644"
   tags: misp
 
-
-- name: Start MISP stack in detached mode
-  ansible.builtin.shell: |
-    set -e
-    cd "{{ misp_path }}"
-    echo "Starting MISP stack..."
-    docker compose up -d || {
-      echo "First attempt failed, waiting 30s and retrying..."
-      sleep 30
-      docker compose down
-      docker compose up -d
-    }
-  register: misp_up
-  changed_when: "'Creating' in misp_up.stdout or 'Starting' in misp_up.stdout"
-  ignore_errors: yes
-  tags: misp
-
-# --- 7. Verify web interface ---
-- name: Wait for MISP web interface
-  uri:
-    url: "http://soc.innovatech.internal/users/login"
-    status_code: 200
-    return_content: no
-  register: misp_http
-  retries: 10
-  delay: 15
-  until: misp_http.status == 200
-  ignore_errors: yes
-
-- name: Print success message
-  debug:
-    msg: "✅ MISP is up and reachable at http://localhost"
