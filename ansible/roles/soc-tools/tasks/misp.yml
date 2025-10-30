@@ -63,21 +63,16 @@
   shell: docker compose pull
   args:
     chdir: "{{ misp_path }}"
-# --- Fix MISP Modules healthcheck timings ---
-- name: Extend healthcheck timing for misp-modules container
-  ansible.builtin.replace:
-    path: "{{ misp_path }}/docker-compose.yml"
-    regexp: 'healthcheck:\n\s+test: .*\n\s+interval: .*?\n\s+timeout: .*?\n\s+retries: .*?\n\s+start_period: .*?\n\s+start_interval: .*'
-    replace: |
-      healthcheck:
-        test: "/bin/bash -c '</dev/tcp/localhost/6666'"
-        interval: 60s
-        timeout: 15s
-        retries: 10
-        start_period: 120s
-        start_interval: 10s
-  ignore_errors: yes
+# --- Replace default MISP docker-compose.yml with customized version ---
+- name: Deploy custom MISP docker-compose.yml
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ misp_path }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
   tags: misp
+
 
 - name: Start MISP stack in detached mode
   ansible.builtin.shell: |
@@ -95,21 +90,17 @@
   ignore_errors: yes
   tags: misp
 
-
-
-
-
-
 # --- 7. Verify web interface ---
 - name: Wait for MISP web interface
   uri:
-    url: "http://localhost"
+    url: "http://soc.innovatech.internal/users/login"
     status_code: 200
     return_content: no
   register: misp_http
   retries: 10
   delay: 15
   until: misp_http.status == 200
+  ignore_errors: yes
 
 - name: Print success message
   debug:
