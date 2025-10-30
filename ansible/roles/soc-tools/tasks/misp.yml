@@ -160,8 +160,9 @@
   git:
     repo: "https://github.com/MISP/MISP.git"
     dest: "{{ path_to_misp }}"
-    version: "2.4"
+    version: 2.4
     update: no
+  register: misp_git
 
 - name: Initialize MISP submodules
   command: git submodule update --init --recursive
