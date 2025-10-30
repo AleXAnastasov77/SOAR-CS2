@@ -76,7 +76,6 @@
         retries: 10
         start_period: 120s
         start_interval: 10s
-  when: ansible.builtin.stat(path="{{ misp_path }}/docker-compose.yml").stat.exists
   ignore_errors: yes
   tags: misp
 
