@@ -25,7 +25,6 @@
 - name: Ensure MISP user exists
   user:
     name: "{{ misp_user }}"
-    password: "{{ misp_password | password_hash('sha512') }}"
     groups: "sudo,staff,www-data"
     append: yes
     shell: /bin/bash
