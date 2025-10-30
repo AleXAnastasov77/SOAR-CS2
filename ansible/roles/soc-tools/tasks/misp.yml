@@ -87,20 +87,69 @@
   args:
     creates: /var/www/MISP/app/vendor/autoload.php
 
-# --- Database ---
-- name: Secure MariaDB and create MISP DB/user
-  mysql_user:
-    login_user: root
-    name: misp
-    password: misp
-    priv: "misp.*:ALL"
-    host: localhost
+
+# --- Prepare MariaDB for MISP (matches prepareDB.sh) ---
+
+- name: Install Python MySQL dependencies
+  apt:
+    name: python3-pymysql
     state: present
+
+- name: Ensure MariaDB is started
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Remove anonymous MySQL users
+  mysql_user:
+    name: ''
+    host_all: true
+    state: absent
+    login_user: root
+
+- name: Drop test database
+  mysql_db:
+    name: test
+    state: absent
+    login_user: root
+
+- name: Disallow remote root logins
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    state: absent
+    login_user: root
+  loop:
+    - "{{ ansible_hostname }}"
+    - '::1'
+    - '127.0.0.1'
 
 - name: Create MISP database
   mysql_db:
     name: misp
     state: present
+    encoding: utf8
+    collation: utf8_unicode_ci
+    login_user: root
+
+- name: Create MISP user with privileges
+  mysql_user:
+    name: misp
+    password: misp
+    host: localhost
+    priv: "misp.*:ALL"
+    state: present
+    login_user: root
+
+- name: Import default MISP schema
+  mysql_db:
+    name: misp
+    state: import
+    target: /var/www/MISP/INSTALL/MYSQL.sql
+    login_user: misp
+    login_password: misp
+
 # --- Step 9: MISP configuration ---
 
 # --- Step 9: MISP configuration (final version) ---
