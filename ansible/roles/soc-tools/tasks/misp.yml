@@ -111,7 +111,6 @@
     - mariadb
     - redis-server
 
-
 # --- 3. PHP (installDepsPhp80 but with stable PPA) ---
 - name: Add PHP repository (Ondrej PPA stable)
   apt_repository:
@@ -147,36 +146,22 @@
 - name: Tune PHP settings for MISP
   lineinfile:
     path: /etc/php/7.4/apache2/php.ini
-    regexp: '^{{ item.key }}'
+    regexp: "^{{ item.key }}"
     line: "{{ item.key }} = {{ item.value }}"
   loop:
-    - { key: 'upload_max_filesize', value: "{{ php_upload_max }}" }
-    - { key: 'post_max_size', value: "{{ php_post_max }}" }
-    - { key: 'max_execution_time', value: "{{ php_execution_time }}" }
-    - { key: 'memory_limit', value: "{{ php_memory_limit }}" }
-
+    - { key: "upload_max_filesize", value: "{{ php_upload_max }}" }
+    - { key: "post_max_size", value: "{{ php_post_max }}" }
+    - { key: "max_execution_time", value: "{{ php_execution_time }}" }
+    - { key: "memory_limit", value: "{{ php_memory_limit }}" }
 
 # --- 4. MISP Core install (installCore) ---
-- name: Create MISP web root directory
-  file:
-    path: "{{ path_to_misp }}"
-    state: directory
-    owner: "{{ www_user }}"
-    group: "{{ www_user }}"
-    mode: "0755"
 
-- name: Clone MISP repository and initialize submodules (as www-data)
-  shell: |
-    if [ ! -d "{{ path_to_misp }}/.git" ]; then
-      sudo -u {{ www_user }} git clone --branch 2.4 --depth 1 https://github.com/MISP/MISP.git {{ path_to_misp }}
-    fi
-
-    cd {{ path_to_misp }}
-    sudo -u {{ www_user }} git submodule update --init --recursive --progress
-  args:
-    chdir: /tmp
-    creates: "{{ path_to_misp }}/.git"
-
+- name: Clone MISP repository
+  git:
+    repo: "https://github.com/MISP/MISP.git"
+    dest: "{{ path_to_misp }}"
+    version: "2.4"
+    update: no
 
 - name: Initialize MISP submodules
   command: git submodule update --init --recursive
@@ -201,7 +186,7 @@
   pip:
     requirements: "{{ path_to_misp }}/INSTALL/INSTALL.req"
     virtualenv: "{{ path_to_misp }}/venv"
-  ignore_errors: yes  # some packages are optional
+  ignore_errors: yes # some packages are optional
 
 # Install a few extras not listed in reqs but used in script
 - name: Install additional Python libraries for MISP
@@ -237,7 +222,6 @@
   args:
     creates: /usr/local/lib/libgtcaca.so
 
-
 # --- 5. CakePHP (installCake) ---
 - name: Ensure composer cache directory exists
   file:
@@ -265,7 +249,6 @@
     owner: "{{ www_user }}"
     group: "{{ www_user }}"
     remote_src: yes
-
 
 # --- 6. Permissions (permissions.sh) ---
 - name: Set correct ownership and permissions on MISP
@@ -300,7 +283,7 @@
 
 - name: Remove anonymous MySQL users
   mysql_user:
-    name: ''
+    name: ""
     host_all: true
     state: absent
     login_unix_socket: /var/run/mysqld/mysqld.sock
@@ -344,7 +327,6 @@
     login_user: "{{ db_user_misp }}"
     login_password: "{{ db_pass_misp }}"
 
-
 # --- 7. Apache configuration (HTTP only, no SSL) ---
 - name: Configure Apache for MISP (HTTP only)
   copy:
@@ -366,7 +348,7 @@
       </VirtualHost>
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
 
 - name: Enable Apache rewrite module and misp site
   shell: |
@@ -381,7 +363,6 @@
     state: started
     enabled: yes
 
-
 # --- 8. Log rotation (logRotation.sh) ---
 - name: Install MISP logrotate configuration
   copy:
@@ -389,7 +370,7 @@
     dest: /etc/logrotate.d/misp
     owner: root
     group: root
-    mode: '0640'
+    mode: "0640"
     remote_src: yes
 
     # === STEP 9: MISP configuration, GPG key, background workers, Cake defaults ===
@@ -404,10 +385,22 @@
     mode: "0640"
     remote_src: yes
   loop:
-    - { src: "{{ path_to_misp }}/app/Config/bootstrap.default.php", dest: "{{ path_to_misp }}/app/Config/bootstrap.php" }
-    - { src: "{{ path_to_misp }}/app/Config/core.default.php", dest: "{{ path_to_misp }}/app/Config/core.php" }
-    - { src: "{{ path_to_misp }}/app/Config/config.default.php", dest: "{{ path_to_misp }}/app/Config/config.php" }
-    - { src: "{{ path_to_misp }}/app/Config/database.default.php", dest: "{{ path_to_misp }}/app/Config/database.php" }
+    - {
+        src: "{{ path_to_misp }}/app/Config/bootstrap.default.php",
+        dest: "{{ path_to_misp }}/app/Config/bootstrap.php",
+      }
+    - {
+        src: "{{ path_to_misp }}/app/Config/core.default.php",
+        dest: "{{ path_to_misp }}/app/Config/core.php",
+      }
+    - {
+        src: "{{ path_to_misp }}/app/Config/config.default.php",
+        dest: "{{ path_to_misp }}/app/Config/config.php",
+      }
+    - {
+        src: "{{ path_to_misp }}/app/Config/database.default.php",
+        dest: "{{ path_to_misp }}/app/Config/database.php",
+      }
 
 # --- 9.2 Create database.php ---
 - name: Create database.php for MISP
@@ -440,7 +433,6 @@
     group: "{{ www_user }}"
     mode: "0750"
     recurse: yes
-
 
 # --- 9.4 Generate GPG key (non-interactive) ---
 - name: Install gnupg if missing
@@ -476,7 +468,6 @@
   args:
     creates: "{{ path_to_misp }}/app/webroot/gpg.asc"
 
-
 # --- 9.5 Background worker service ---
 - name: Create systemd unit for MISP background workers
   copy:
@@ -503,7 +494,6 @@
     name: misp-workers
     enabled: yes
     state: started
-
 
 # --- 9.6 Core CakePHP configuration ---
 - name: Run CakePHP initialisation (userInit, updates, defaults)
@@ -554,7 +544,6 @@
 - name: Display generated MISP admin API key
   debug:
     msg: "🔑 MISP admin API key: {{ misp_admin_key.stdout | default('Could not retrieve key') }}"
-
 
 # --- 10.2 Verify Apache and worker services ---
 - name: Ensure Apache service is running
