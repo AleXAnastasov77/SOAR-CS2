@@ -48,7 +48,7 @@
   git:
     repo: "{{ misp_repo }}"
     dest: "{{ misp_path }}"
-    version: "main"
+    version: "master"
     force: yes
 
 # --- 3. Copy environment file ---
