@@ -33,11 +33,11 @@
   loop:
     - redis-server
     - mariadb
-- name: Add Ondrej PHP 7.4 repository manually
-  shell: |
-    echo "deb http://ppa.launchpad.net/ondrej/php/ubuntu devel main" > /etc/apt/sources.list.d/ondrej-ubuntu-php-devel.list
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4F4EA0AAE5267A6C
-    apt update
+- name: Add Ondrej PHP 7.4 PPA
+  apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+    update_cache: yes
 
 # --- PHP 7.4 ---
 - name: Install PHP 7.4 and required extensions
