@@ -1,40 +1,590 @@
-- name: Download official MISP installer
-  get_url:
-    url: https://raw.githubusercontent.com/MISP/MISP/2.4/INSTALL/INSTALL.sh
-    dest: /tmp/INSTALL.sh
+---
+# === Minimal Ubuntu 22.04 Setup for MISP ===
+
+# --- 0. System upgrade ---
+- name: Ensure system is up to date
+  apt:
+    upgrade: dist
+    update_cache: yes
+    autoclean: yes
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    DEBIAN_PRIORITY: critical
+
+# --- 1. Ensure sudo and etckeeper installed ---
+- name: Install sudo, curl, and etckeeper
+  apt:
+    name:
+      - sudo
+      - curl
+      - etckeeper
+    state: present
+    update_cache: yes
+
+# --- 2. Ensure MISP user exists and is in required groups ---
+- name: Ensure MISP user exists
+  user:
+    name: "{{ misp_user }}"
+    password: "{{ misp_password | password_hash('sha512') }}"
+    groups: "sudo,staff,www-data"
+    append: yes
+    shell: /bin/bash
+    state: present
+    create_home: yes
+
+# --- 3. Ensure /usr/local/src writable by misp ---
+- name: Ensure /usr/local/src exists with proper permissions
+  file:
+    path: /usr/local/src
+    state: directory
+    owner: root
+    group: staff
+    mode: "2775"
+
+# --- 4. (Optional) Skip interface renaming, handled by Netplan on Ubuntu 22.04 ---
+
+# --- 5. Install Postfix non-interactively ---
+- name: Preseed postfix to avoid prompt
+  debconf:
+    name: postfix
+    question: "postfix/main_mailer_type"
+    value: "Satellite system"
+    vtype: "string"
+
+- name: Install Postfix and dialog
+  apt:
+    name:
+      - postfix
+      - dialog
+    state: present
+    update_cache: yes
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+
+- name: Ensure Postfix service is enabled and running
+  service:
+    name: postfix
+    state: started
+    enabled: yes
+
+# === STEP 2–5: Install LAMP, PHP, MISP Core, CakePHP, and set permissions ===
+
+# --- 2. Core dependencies (installCoreDeps) ---
+- name: Install core system dependencies
+  apt:
+    name:
+      - curl
+      - gcc
+      - git
+      - gpg-agent
+      - make
+      - python3
+      - python3-pip
+      - python3-dev
+      - openssl
+      - redis-server
+      - sudo
+      - vim
+      - zip
+      - unzip
+      - virtualenv
+      - libfuzzy-dev
+      - sqlite3
+      - moreutils
+      - libxml2-dev
+      - libxslt1-dev
+      - zlib1g-dev
+      - python3-setuptools
+      - mariadb-client
+      - mariadb-server
+      - apache2
+      - apache2-utils
+    state: present
+    update_cache: yes
+
+- name: Ensure required services are enabled
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - apache2
+    - mariadb
+    - redis-server
+
+
+# --- 3. PHP (installDepsPhp80 but with stable PPA) ---
+- name: Add PHP repository (Ondrej PPA stable)
+  apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+    update_cache: yes
+
+- name: Install PHP 7.4 and extensions
+  apt:
+    name:
+      - php7.4
+      - php7.4-cli
+      - php7.4-dev
+      - php7.4-xml
+      - php7.4-mysql
+      - php7.4-mbstring
+      - php7.4-zip
+      - php7.4-intl
+      - php7.4-bcmath
+      - php7.4-gd
+      - libapache2-mod-php7.4
+      - libgpgme-dev
+    state: present
+
+- name: Install PECL redis and gnupg extensions
+  shell: |
+    yes '' | pecl install -f redis
+    yes '' | pecl install -f gnupg
+    echo "extension=redis.so" > /etc/php/7.4/mods-available/redis.ini
+    echo "extension=gnupg.so" > /etc/php/7.4/mods-available/gnupg.ini
+    phpenmod redis gnupg
+
+- name: Tune PHP settings for MISP
+  lineinfile:
+    path: /etc/php/7.4/apache2/php.ini
+    regexp: '^{{ item.key }}'
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - { key: 'upload_max_filesize', value: "{{ php_upload_max }}" }
+    - { key: 'post_max_size', value: "{{ php_post_max }}" }
+    - { key: 'max_execution_time', value: "{{ php_execution_time }}" }
+    - { key: 'memory_limit', value: "{{ php_memory_limit }}" }
+
+
+# --- 4. MISP Core install (installCore) ---
+- name: Create MISP web root directory
+  file:
+    path: "{{ path_to_misp }}"
+    state: directory
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
     mode: "0755"
 
-- name: Patch INSTALL.sh to remove /dev/tty usage
-  shell: |
-    sed -i 's|/dev/tty|/dev/null|g' /tmp/INSTALL.sh
-    sed -i 's|tput||g' /tmp/INSTALL.sh
+- name: Clone MISP repository
+  git:
+    repo: "https://github.com/MISP/MISP.git"
+    dest: "{{ path_to_misp }}"
+    version: "2.4"
+    update: no
 
-- name: Run official MISP installer (unattended core + modules)
-  shell: |
-    export DEBIAN_FRONTEND=noninteractive
-    export TERM=dumb
-    MISP_USER=misp \
-    MISP_PASSWORD=misp \
-    DBUSER_ADMIN=root \
-    DBPASSWORD_ADMIN=root \
-    DBUSER_MISP=misp \
-    DBPASSWORD_MISP=misp \
-    bash /tmp/INSTALL.sh -c -M -u
+- name: Initialize MISP submodules
+  command: git submodule update --init --recursive
   args:
-    creates: /var/www/MISP/app/webroot
+    chdir: "{{ path_to_misp }}"
+  become: yes
+  become_user: "{{ www_user }}"
+
+- name: Create Python virtual environment for MISP
+  command: python3 -m venv "{{ path_to_misp }}/venv"
+  become: yes
+  become_user: "{{ www_user }}"
+
+- name: Create pip cache directory
+  file:
+    path: /var/www/.cache
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+    state: directory
+
+- name: Install MISP Python dependencies
+  pip:
+    requirements: "{{ path_to_misp }}/INSTALL/INSTALL.req"
+    virtualenv: "{{ path_to_misp }}/venv"
+  ignore_errors: yes  # some packages are optional
+
+# Install a few extras not listed in reqs but used in script
+- name: Install additional Python libraries for MISP
+  pip:
+    name:
+      - ordered-set
+      - python-dateutil
+      - six
+      - weakrefmethod
+      - zmq
+      - redis
+      - python-magic
+      - plyara
+    virtualenv: "{{ path_to_misp }}/venv"
+
+# Optional: build and install faup + gtcaca (URL extractor libs)
+- name: Install build deps for faup
+  apt:
+    name:
+      - cmake
+      - libcaca-dev
+      - liblua5.3-dev
+    state: present
+
+- name: Clone and build faup and gtcaca
+  shell: |
+    cd /tmp
+    git clone https://github.com/stricaud/gtcaca.git
+    git clone https://github.com/stricaud/faup.git
+    cd gtcaca && mkdir build && cd build && cmake .. && make && make install
+    cd ../../faup && mkdir build && cd build && cmake .. && make && make install
+    ldconfig
+  args:
+    creates: /usr/local/lib/libgtcaca.so
 
 
+# --- 5. CakePHP (installCake) ---
+- name: Ensure composer cache directory exists
+  file:
+    path: /var/www/.composer
+    state: directory
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
 
-- name: Check if MISP web interface is reachable
+- name: Install CakePHP via composer
+  shell: |
+    cd {{ path_to_misp }}/app
+    php composer.phar install --no-dev
+  args:
+    chdir: "{{ path_to_misp }}/app"
+  become: yes
+  become_user: "{{ www_user }}"
+
+- name: Enable redis and gnupg PHP modules
+  command: phpenmod redis gnupg
+
+- name: Copy CakeResque config
+  copy:
+    src: "{{ path_to_misp }}/INSTALL/setup/config.php"
+    dest: "{{ path_to_misp }}/app/Plugin/CakeResque/Config/config.php"
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+    remote_src: yes
+
+
+# --- 6. Permissions (permissions.sh) ---
+- name: Set correct ownership and permissions on MISP
+  file:
+    path: "{{ path_to_misp }}"
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+    recurse: yes
+
+- name: Set writable directories
+  file:
+    path: "{{ item }}"
+    mode: "g+ws"
+    recurse: yes
+  loop:
+    - "{{ path_to_misp }}/app/tmp"
+    - "{{ path_to_misp }}/app/files"
+    - "{{ path_to_misp }}/app/files/scripts/tmp"
+# === STEP 6–8: Database creation, Apache config (HTTP only), and log rotation ===
+
+# --- 6. Prepare MariaDB for MISP (prepareDB.sh) ---
+- name: Install Python MySQL bindings for Ansible
+  apt:
+    name: python3-pymysql
+    state: present
+
+- name: Ensure MariaDB is started
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Remove anonymous MySQL users
+  mysql_user:
+    name: ''
+    host_all: true
+    state: absent
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+
+- name: Drop test database
+  mysql_db:
+    name: test
+    state: absent
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+
+- name: Ensure root password authentication is set
+  shell: |
+    mariadb -u root -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ db_pass_admin }}'; FLUSH PRIVILEGES;"
+  args:
+    creates: /root/.misp_root_pw_set
+
+- name: Create MISP database
+  mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    encoding: utf8
+    collation: utf8_unicode_ci
+    login_user: root
+    login_password: "{{ db_pass_admin }}"
+
+- name: Create MISP DB user with privileges
+  mysql_user:
+    name: "{{ db_user_misp }}"
+    password: "{{ db_pass_misp }}"
+    host: localhost
+    priv: "{{ db_name }}.*:ALL"
+    state: present
+    login_user: root
+    login_password: "{{ db_pass_admin }}"
+
+- name: Import empty MISP schema
+  mysql_db:
+    name: "{{ db_name }}"
+    state: import
+    target: "{{ path_to_misp }}/INSTALL/MYSQL.sql"
+    login_user: "{{ db_user_misp }}"
+    login_password: "{{ db_pass_misp }}"
+
+
+# --- 7. Apache configuration (HTTP only, no SSL) ---
+- name: Configure Apache for MISP (HTTP only)
+  copy:
+    dest: /etc/apache2/sites-available/misp.conf
+    content: |
+      <VirtualHost *:80>
+          ServerAdmin admin@{{ fqdn }}
+          ServerName {{ fqdn }}
+          DocumentRoot {{ path_to_misp }}/app/webroot
+          <Directory {{ path_to_misp }}/app/webroot>
+              Options -Indexes
+              AllowOverride All
+              Require all granted
+          </Directory>
+
+          ErrorLog ${APACHE_LOG_DIR}/misp_error.log
+          CustomLog ${APACHE_LOG_DIR}/misp_access.log combined
+          ServerSignature Off
+      </VirtualHost>
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Enable Apache rewrite module and misp site
+  shell: |
+    a2enmod rewrite
+    a2ensite misp.conf
+    a2dissite 000-default
+    systemctl reload apache2
+
+- name: Ensure Apache is running
+  service:
+    name: apache2
+    state: started
+    enabled: yes
+
+
+# --- 8. Log rotation (logRotation.sh) ---
+- name: Install MISP logrotate configuration
+  copy:
+    src: "{{ path_to_misp }}/INSTALL/misp.logrotate"
+    dest: /etc/logrotate.d/misp
+    owner: root
+    group: root
+    mode: '0640'
+    remote_src: yes
+
+    # === STEP 9: MISP configuration, GPG key, background workers, Cake defaults ===
+
+# --- 9.1 Copy MISP default config templates ---
+- name: Copy MISP default config templates
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+    mode: "0640"
+    remote_src: yes
+  loop:
+    - { src: "{{ path_to_misp }}/app/Config/bootstrap.default.php", dest: "{{ path_to_misp }}/app/Config/bootstrap.php" }
+    - { src: "{{ path_to_misp }}/app/Config/core.default.php", dest: "{{ path_to_misp }}/app/Config/core.php" }
+    - { src: "{{ path_to_misp }}/app/Config/config.default.php", dest: "{{ path_to_misp }}/app/Config/config.php" }
+    - { src: "{{ path_to_misp }}/app/Config/database.default.php", dest: "{{ path_to_misp }}/app/Config/database.php" }
+
+# --- 9.2 Create database.php ---
+- name: Create database.php for MISP
+  copy:
+    dest: "{{ path_to_misp }}/app/Config/database.php"
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+    mode: "0640"
+    content: |
+      <?php
+      class DATABASE_CONFIG {
+        public $default = array(
+          'datasource' => 'Database/Mysql',
+          'persistent' => false,
+          'host' => 'localhost',
+          'login' => '{{ db_user_misp }}',
+          'port' => 3306,
+          'password' => '{{ db_pass_misp }}',
+          'database' => '{{ db_name }}',
+          'prefix' => '',
+          'encoding' => 'utf8',
+        );
+      }
+
+# --- 9.3 Secure config folder ---
+- name: Set correct permissions on MISP Config directory
+  file:
+    path: "{{ path_to_misp }}/app/Config"
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+    mode: "0750"
+    recurse: yes
+
+
+# --- 9.4 Generate GPG key (non-interactive) ---
+- name: Install gnupg if missing
+  apt:
+    name: gnupg
+    state: present
+
+- name: Create GPG batch file for MISP key
+  copy:
+    dest: /tmp/gen-key-script
+    mode: "0644"
+    content: |
+      %echo Generating a default key
+      Key-Type: default
+      Key-Length: 3072
+      Subkey-Type: default
+      Name-Real: Autogenerated Key
+      Name-Comment: WARNING: MISP AutoGenerated Key consider this Key VOID!
+      Name-Email: admin@admin.test
+      Expire-Date: 0
+      Passphrase: {{ lookup('password', '/dev/null chars=ascii_letters,digits length=32') }}
+      %commit
+      %echo done
+
+- name: Generate GPG key for MISP
+  become: yes
+  become_user: "{{ www_user }}"
+  shell: |
+    mkdir -p {{ path_to_misp }}/.gnupg
+    chmod 700 {{ path_to_misp }}/.gnupg
+    gpg --homedir {{ path_to_misp }}/.gnupg --batch --gen-key /tmp/gen-key-script
+    gpg --homedir {{ path_to_misp }}/.gnupg --export --armor admin@admin.test > {{ path_to_misp }}/app/webroot/gpg.asc
+  args:
+    creates: "{{ path_to_misp }}/app/webroot/gpg.asc"
+
+
+# --- 9.5 Background worker service ---
+- name: Create systemd unit for MISP background workers
+  copy:
+    dest: /etc/systemd/system/misp-workers.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=MISP background workers
+      After=network.target
+
+      [Service]
+      Type=forking
+      User={{ www_user }}
+      Group={{ www_user }}
+      ExecStart={{ path_to_misp }}/app/Console/worker/start.sh
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Enable and start MISP worker service
+  systemd:
+    name: misp-workers
+    enabled: yes
+    state: started
+
+
+# --- 9.6 Core CakePHP configuration ---
+- name: Run CakePHP initialisation (userInit, updates, defaults)
+  shell: |
+    cd {{ path_to_misp }}
+    sudo -u {{ www_user }} php app/Console/cake userInit -q || true
+    sudo -u {{ www_user }} php app/Console/cake Admin runUpdates
+    sudo -u {{ www_user }} php app/Console/cake Admin setSetting "MISP.python_bin" "{{ path_to_misp }}/venv/bin/python"
+    sudo -u {{ www_user }} php app/Console/cake Admin setSetting "MISP.tmpdir" "{{ path_to_misp }}/app/tmp"
+    sudo -u {{ www_user }} php app/Console/cake Baseurl "http://{{ fqdn }}"
+    sudo -u {{ www_user }} php app/Console/cake Admin setSetting "MISP.external_baseurl" "http://{{ fqdn }}"
+    sudo -u {{ www_user }} php app/Console/cake Admin setSetting "MISP.email" "info@admin.test"
+    sudo -u {{ www_user }} php app/Console/cake Admin setSetting "MISP.disable_emailing" true --force
+    sudo -u {{ www_user }} php app/Console/cake Admin setSetting "MISP.contact" "info@admin.test"
+    sudo -u {{ www_user }} php app/Console/cake Admin setSetting "MISP.live" 1
+  args:
+    chdir: "{{ path_to_misp }}"
+
+- name: Run CakePHP post-install updates (taxonomies, templates, etc.)
+  shell: |
+    cd {{ path_to_misp }}
+    sudo -u {{ www_user }} php app/Console/cake Admin updateGalaxies
+    sudo -u {{ www_user }} php app/Console/cake Admin updateTaxonomies
+    sudo -u {{ www_user }} php app/Console/cake Admin updateWarningLists
+    sudo -u {{ www_user }} php app/Console/cake Admin updateNoticeLists
+    sudo -u {{ www_user }} php app/Console/cake Admin updateObjectTemplates
+  args:
+    chdir: "{{ path_to_misp }}"
+  ignore_errors: yes
+
+  # === STEP 10: Finalization, admin key, and health checks ===
+
+# --- 10.1 Generate admin API key (if missing) ---
+- name: Generate MISP admin user if not exists
+  shell: |
+    cd {{ path_to_misp }}
+    sudo -u {{ www_user }} php app/Console/cake userInit -q || true
+  args:
+    chdir: "{{ path_to_misp }}"
+
+- name: Extract admin API key
+  shell: |
+    mysql -u {{ db_user_misp }} -p{{ db_pass_misp }} -N -B -e "SELECT authkey FROM misp.users WHERE email='admin@admin.test';"
+  register: misp_admin_key
+  changed_when: false
+  failed_when: misp_admin_key.rc != 0 and "doesn't exist" not in misp_admin_key.stderr
+
+- name: Display generated MISP admin API key
+  debug:
+    msg: "🔑 MISP admin API key: {{ misp_admin_key.stdout | default('Could not retrieve key') }}"
+
+
+# --- 10.2 Verify Apache and worker services ---
+- name: Ensure Apache service is running
+  service:
+    name: apache2
+    state: started
+    enabled: yes
+
+- name: Ensure MISP worker service is running
+  service:
+    name: misp-workers
+    state: started
+    enabled: yes
+
+# --- 10.3 Verify MISP web UI responds ---
+- name: Wait for MISP web interface
   uri:
-    url: "http://localhost"
+    url: "http://{{ fqdn }}"
     status_code: 200
     return_content: no
-  register: misp_health
-  retries: 10
+  register: misp_http
+  retries: 3
   delay: 10
-  until: misp_health.status == 200
+  until: misp_http.status == 200
 
-- name: Print MISP health status
+- name: Print MISP health check
   debug:
-    msg: "✅ MISP is reachable and returned status {{ misp_health.status }}"
+    msg: "✅ MISP is reachable via http://{{ fqdn }} (Status: {{ misp_http.status }})"
+
+# --- 10.4 Verify background workers ---
+- name: Check MISP worker process
+  shell: pgrep -af "Console/worker/start.sh" || true
+  register: worker_check
+  changed_when: false
+
+- name: Show background worker status
+  debug:
+    msg: "{{ '✅ Workers are running: ' + worker_check.stdout if worker_check.stdout else '⚠️  No worker processes detected' }}"
