@@ -5,15 +5,18 @@
     mode: "0755"
 - name: Run official MISP installer (unattended core + modules)
   shell: |
+    export DEBIAN_FRONTEND=noninteractive
+    export TERM=dumb
     MISP_USER=misp \
     MISP_PASSWORD=misp \
     DBUSER_ADMIN=root \
     DBPASSWORD_ADMIN=root \
     DBUSER_MISP=misp \
     DBPASSWORD_MISP=misp \
-    bash /tmp/INSTALL.sh -c -M -u
+    bash /tmp/INSTALL.sh -c -M -u < /dev/null
   args:
     creates: /var/www/MISP/app/webroot
+
 
 - name: Check if MISP web interface is reachable
   uri:
