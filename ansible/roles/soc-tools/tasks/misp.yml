@@ -38,8 +38,7 @@
     echo "deb http://ppa.launchpad.net/ondrej/php/ubuntu devel main" > /etc/apt/sources.list.d/ondrej-ubuntu-php-devel.list
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4F4EA0AAE5267A6C
     apt update
-  args:
-    warn: false
+
 # --- PHP 7.4 ---
 - name: Install PHP 7.4 and required extensions
   apt:
