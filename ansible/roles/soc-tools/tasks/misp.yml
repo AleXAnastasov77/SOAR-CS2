@@ -1,167 +1,161 @@
 ---
-# === Minimal MISP Installation for Ubuntu 22.04 ===
-- hosts: all
-  become: yes
-  tasks:
-
-  # --- Base dependencies ---
-  - name: Install MISP dependencies
-    apt:
-      name:
-        - curl
-        - git
-        - gcc
-        - gpg-agent
-        - make
-        - openssl
-        - redis-server
-        - unzip
-        - zip
-        - python3
-        - python3-pip
-        - python3-virtualenv
-        - mariadb-server
-        - apache2
-        - apache2-utils
-        - libxml2-dev
-        - libxslt1-dev
-        - zlib1g-dev
-        - libfuzzy-dev
-        - libjpeg-dev
-      state: present
-      update_cache: yes
-
-  - name: Enable and start Redis and MariaDB
-    systemd:
-      name: "{{ item }}"
-      state: started
-      enabled: true
-    loop:
+- name: Install MISP dependencies
+  apt:
+    name:
+      - curl
+      - git
+      - gcc
+      - gpg-agent
+      - make
+      - openssl
       - redis-server
-      - mariadb
-
-  # --- PHP 7.4 ---
-  - name: Install PHP 7.4 and required extensions
-    apt:
-      name:
-        - software-properties-common
-        - php7.4
-        - php7.4-cli
-        - php7.4-dev
-        - libapache2-mod-php7.4
-        - php7.4-mysql
-        - php7.4-xml
-        - php7.4-mbstring
-        - php7.4-intl
-        - php7.4-bcmath
-        - php7.4-zip
-        - php7.4-curl
-        - php7.4-gd
-        - php7.4-redis
-        - php7.4-gnupg
-      state: present
-      update_cache: yes
-
-  - name: Configure PHP settings
-    lineinfile:
-      path: /etc/php/7.4/apache2/php.ini
-      regexp: '^{{ item.key }}'
-      line: "{{ item.key }} = {{ item.value }}"
-    loop:
-      - { key: 'upload_max_filesize', value: '50M' }
-      - { key: 'post_max_size', value: '50M' }
-      - { key: 'max_execution_time', value: '300' }
-      - { key: 'memory_limit', value: '2048M' }
-
-  # --- MISP Source ---
-  - name: Clone MISP repository
-    git:
-      repo: "https://github.com/MISP/MISP.git"
-      dest: /var/www/MISP
-      version: "2.4"
-      update: no
-
-  - name: Install CakePHP dependencies with Composer
-    shell: |
-      cd /var/www/MISP/app
-      php composer.phar install --no-dev
-    args:
-      creates: /var/www/MISP/app/vendor/autoload.php
-
-  # --- Database ---
-  - name: Secure MariaDB and create MISP DB/user
-    mysql_user:
-      login_user: root
-      name: misp
-      password: misp
-      priv: "misp.*:ALL"
-      host: localhost
-      state: present
-
-  - name: Create MISP database
-    mysql_db:
-      name: misp
-      state: present
-
-  # --- Apache Config ---
-  - name: Configure Apache for MISP
-    copy:
-      dest: /etc/apache2/sites-available/misp.conf
-      content: |
-        <VirtualHost *:80>
-            ServerAdmin admin@localhost
-            DocumentRoot /var/www/MISP/app/webroot
-            <Directory /var/www/MISP/app/webroot>
-                Options -Indexes
-                AllowOverride All
-                Require all granted
-            </Directory>
-            ErrorLog ${APACHE_LOG_DIR}/misp_error.log
-            CustomLog ${APACHE_LOG_DIR}/misp_access.log combined
-        </VirtualHost>
-
-  - name: Enable site and rewrite module
-    shell: |
-      a2enmod rewrite
-      a2ensite misp.conf
-      a2dissite 000-default
-      systemctl reload apache2
-
-  # --- Permissions ---
-  - name: Fix ownership and permissions
-    file:
-      path: /var/www/MISP
-      owner: www-data
-      group: www-data
-      recurse: yes
-
-  - name: Ensure MISP app folders are writable
-    file:
-      path: "{{ item }}"
-      mode: "g+ws"
-      recurse: yes
-    loop:
-      - /var/www/MISP/app/tmp
-      - /var/www/MISP/app/files
-      - /var/www/MISP/app/files/scripts/tmp
-
-  # --- Final services ---
-  - name: Restart services
-    systemd:
-      name: "{{ item }}"
-      state: restarted
-    loop:
+      - unzip
+      - zip
+      - python3
+      - python3-pip
+      - python3-virtualenv
+      - mariadb-server
       - apache2
-      - mariadb
-      - redis-server
+      - apache2-utils
+      - libxml2-dev
+      - libxslt1-dev
+      - zlib1g-dev
+      - libfuzzy-dev
+      - libjpeg-dev
+    state: present
+    update_cache: yes
+
+- name: Enable and start Redis and MariaDB
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - redis-server
+    - mariadb
+
+# --- PHP 7.4 ---
+- name: Install PHP 7.4 and required extensions
+  apt:
+    name:
+      - software-properties-common
+      - php7.4
+      - php7.4-cli
+      - php7.4-dev
+      - libapache2-mod-php7.4
+      - php7.4-mysql
+      - php7.4-xml
+      - php7.4-mbstring
+      - php7.4-intl
+      - php7.4-bcmath
+      - php7.4-zip
+      - php7.4-curl
+      - php7.4-gd
+      - php7.4-redis
+      - php7.4-gnupg
+    state: present
+    update_cache: yes
+
+- name: Configure PHP settings
+  lineinfile:
+    path: /etc/php/7.4/apache2/php.ini
+    regexp: '^{{ item.key }}'
+    line: "{{ item.key }} = {{ item.value }}"
+  loop:
+    - { key: 'upload_max_filesize', value: '50M' }
+    - { key: 'post_max_size', value: '50M' }
+    - { key: 'max_execution_time', value: '300' }
+    - { key: 'memory_limit', value: '2048M' }
+
+# --- MISP Source ---
+- name: Clone MISP repository
+  git:
+    repo: "https://github.com/MISP/MISP.git"
+    dest: /var/www/MISP
+    version: "2.4"
+    update: no
+
+- name: Install CakePHP dependencies with Composer
+  shell: |
+    cd /var/www/MISP/app
+    php composer.phar install --no-dev
+  args:
+    creates: /var/www/MISP/app/vendor/autoload.php
+
+# --- Database ---
+- name: Secure MariaDB and create MISP DB/user
+  mysql_user:
+    login_user: root
+    name: misp
+    password: misp
+    priv: "misp.*:ALL"
+    host: localhost
+    state: present
+
+- name: Create MISP database
+  mysql_db:
+    name: misp
+    state: present
+
+# --- Apache Config ---
+- name: Configure Apache for MISP
+  copy:
+    dest: /etc/apache2/sites-available/misp.conf
+    content: |
+      <VirtualHost *:80>
+          ServerAdmin admin@localhost
+          DocumentRoot /var/www/MISP/app/webroot
+          <Directory /var/www/MISP/app/webroot>
+              Options -Indexes
+              AllowOverride All
+              Require all granted
+          </Directory>
+          ErrorLog ${APACHE_LOG_DIR}/misp_error.log
+          CustomLog ${APACHE_LOG_DIR}/misp_access.log combined
+      </VirtualHost>
+
+- name: Enable site and rewrite module
+  shell: |
+    a2enmod rewrite
+    a2ensite misp.conf
+    a2dissite 000-default
+    systemctl reload apache2
+
+# --- Permissions ---
+- name: Fix ownership and permissions
+  file:
+    path: /var/www/MISP
+    owner: www-data
+    group: www-data
+    recurse: yes
+
+- name: Ensure MISP app folders are writable
+  file:
+    path: "{{ item }}"
+    mode: "g+ws"
+    recurse: yes
+  loop:
+    - /var/www/MISP/app/tmp
+    - /var/www/MISP/app/files
+    - /var/www/MISP/app/files/scripts/tmp
+
+# --- Final services ---
+- name: Restart services
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - apache2
+    - mariadb
+    - redis-server
 - name: Check if MISP web interface is reachable
-  uri:
-    url: "http://localhost"
-    return_content: yes
-    status_code: 200
-  register: misp_check
+uri:
+  url: "http://localhost"
+  return_content: yes
+  status_code: 200
+register: misp_check
 
 - name: Print MISP check result
-  debug:
-    msg: >
-      MISP is reachable and returned status code {{ misp_check.status }}
+debug:
+  msg: >
+    MISP is reachable and returned status code {{ misp_check.status }}
