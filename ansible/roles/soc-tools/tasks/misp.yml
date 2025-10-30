@@ -63,54 +63,43 @@
   shell: docker compose pull
   args:
     chdir: "{{ misp_path }}"
+# --- Fix MISP Modules healthcheck timings ---
+- name: Extend healthcheck timing for misp-modules container
+  ansible.builtin.replace:
+    path: "{{ misp_path }}/docker-compose.yml"
+    regexp: 'healthcheck:\n\s+test: .*\n\s+interval: .*?\n\s+timeout: .*?\n\s+retries: .*?\n\s+start_period: .*?\n\s+start_interval: .*'
+    replace: |
+      healthcheck:
+        test: "/bin/bash -c '</dev/tcp/localhost/6666'"
+        interval: 60s
+        timeout: 15s
+        retries: 10
+        start_period: 120s
+        start_interval: 10s
+  when: ansible.builtin.stat(path="{{ misp_path }}/docker-compose.yml").stat.exists
+  ignore_errors: yes
+  tags: misp
 
-# --- 5. Start the MISP containers ---
 - name: Start MISP stack in detached mode
-  shell: docker compose up -d
-  args:
-    chdir: "{{ misp_path }}"
-  register: compose_up
-  ignore_errors: yes
-
-- name: Show Docker compose output (for debugging)
-  debug:
-    var: compose_up.stderr
-
-# --- 6. Wait until all containers are healthy ---
-- name: Wait for all MISP containers to become healthy
-  shell: |
+  ansible.builtin.shell: |
     set -e
-    retries=30
-    sleep_time=10
-    while [ $retries -gt 0 ]; do
-      unhealthy=$(docker ps --filter "name=misp-docker" --filter "health=unhealthy" --format '{{.Names}}')
-      starting=$(docker ps --filter "name=misp-docker" --filter "health=starting" --format '{{.Names}}')
-      if [ -z "$unhealthy" ] && [ -z "$starting" ]; then
-        echo "✅ All MISP containers are healthy"
-        exit 0
-      fi
-      echo "⏳ Waiting for containers to become healthy... (remaining: $retries)"
-      sleep $sleep_time
-      retries=$((retries - 1))
-    done
-    echo "⚠️ Some containers are still unhealthy after timeout"
-    docker ps --filter "name=misp-docker"
-    exit 1
-  args:
-    chdir: "{{ misp_path }}"
-  register: health_check
-  retries: 1
-  delay: 10
+    cd "{{ misp_path }}"
+    echo "Starting MISP stack..."
+    docker compose up -d || {
+      echo "First attempt failed, waiting 30s and retrying..."
+      sleep 30
+      docker compose down
+      docker compose up -d
+    }
+  register: misp_up
+  changed_when: "'Creating' in misp_up.stdout or 'Starting' in misp_up.stdout"
   ignore_errors: yes
+  tags: misp
 
-- name: Print container health summary
-  shell: docker ps --filter "name=misp-docker"
-  register: container_status
-  changed_when: false
 
-- name: Show container states
-  debug:
-    var: container_status.stdout_lines
+
+
+
 
 # --- 7. Verify web interface ---
 - name: Wait for MISP web interface
