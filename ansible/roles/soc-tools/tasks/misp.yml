@@ -1,7 +1,6 @@
 ---
 # === Deploy MISP using the official Docker containers ===
 
-
 # --- 1. Install Docker Engine + Compose dependencies ---
 - name: Install Docker prerequisites
   apt:
@@ -66,12 +65,54 @@
     chdir: "{{ misp_path }}"
 
 # --- 5. Start the MISP containers ---
-- name: Start MISP stack
+- name: Start MISP stack in detached mode
   shell: docker compose up -d
   args:
     chdir: "{{ misp_path }}"
+  register: compose_up
+  ignore_errors: yes
 
-# --- 6. Verify HTTP access ---
+- name: Show Docker compose output (for debugging)
+  debug:
+    var: compose_up.stderr
+
+# --- 6. Wait until all containers are healthy ---
+- name: Wait for all MISP containers to become healthy
+  shell: |
+    set -e
+    retries=30
+    sleep_time=10
+    while [ $retries -gt 0 ]; do
+      unhealthy=$(docker ps --filter "name=misp-docker" --filter "health=unhealthy" --format '{{.Names}}')
+      starting=$(docker ps --filter "name=misp-docker" --filter "health=starting" --format '{{.Names}}')
+      if [ -z "$unhealthy" ] && [ -z "$starting" ]; then
+        echo "✅ All MISP containers are healthy"
+        exit 0
+      fi
+      echo "⏳ Waiting for containers to become healthy... (remaining: $retries)"
+      sleep $sleep_time
+      retries=$((retries - 1))
+    done
+    echo "⚠️ Some containers are still unhealthy after timeout"
+    docker ps --filter "name=misp-docker"
+    exit 1
+  args:
+    chdir: "{{ misp_path }}"
+  register: health_check
+  retries: 1
+  delay: 10
+  ignore_errors: yes
+
+- name: Print container health summary
+  shell: docker ps --filter "name=misp-docker"
+  register: container_status
+  changed_when: false
+
+- name: Show container states
+  debug:
+    var: container_status.stdout_lines
+
+# --- 7. Verify web interface ---
 - name: Wait for MISP web interface
   uri:
     url: "http://localhost"
@@ -82,6 +123,6 @@
   delay: 15
   until: misp_http.status == 200
 
-- name: Print MISP status
+- name: Print success message
   debug:
     msg: "✅ MISP is up and reachable at http://localhost"
