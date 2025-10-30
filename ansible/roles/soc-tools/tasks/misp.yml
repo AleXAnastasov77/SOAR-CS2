@@ -3,11 +3,18 @@
     url: https://raw.githubusercontent.com/MISP/MISP/2.4/INSTALL/INSTALL.sh
     dest: /tmp/INSTALL.sh
     mode: "0755"
-
-- name: Run official MISP installer for Ubuntu 22.04
-  shell: bash /tmp/INSTALL.sh
+- name: Run official MISP installer (unattended core + modules)
+  shell: |
+    MISP_USER=misp \
+    MISP_PASSWORD=misp \
+    DBUSER_ADMIN=root \
+    DBPASSWORD_ADMIN=root \
+    DBUSER_MISP=misp \
+    DBPASSWORD_MISP=misp \
+    bash /tmp/INSTALL.sh -c -M -u
   args:
     creates: /var/www/MISP/app/webroot
+
 - name: Check if MISP web interface is reachable
   uri:
     url: "http://localhost"
