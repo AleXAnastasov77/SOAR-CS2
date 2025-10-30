@@ -1,251 +1,87 @@
 ---
-# --- 0. System upgrade ---
-- name: Ensure system is up to date
-  apt:
-    upgrade: dist
-    update_cache: yes
-    autoclean: yes
-  environment:
-    DEBIAN_FRONTEND: noninteractive
-    DEBIAN_PRIORITY: critical
+# === Deploy MISP using the official Docker containers ===
 
-# --- 1. Ensure sudo and etckeeper installed ---
-- name: Install sudo, curl, and etckeeper
+
+# --- 1. Install Docker Engine + Compose dependencies ---
+- name: Install Docker prerequisites
   apt:
     name:
-      - sudo
+      - ca-certificates
       - curl
-      - etckeeper
+      - gnupg
+      - lsb-release
     state: present
     update_cache: yes
 
-# --- 2. Ensure MISP user exists ---
-- name: Ensure MISP user exists
-  user:
-    name: "{{ misp_user }}"
-    groups: "sudo,staff,www-data"
-    append: yes
-    shell: /bin/bash
-    state: present
-    create_home: yes
+- name: Add Docker GPG key
+  ansible.builtin.shell: |
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+  args:
+    creates: /etc/apt/keyrings/docker.gpg
 
-# --- 3. Ensure /usr/local/src writable by misp ---
-- name: Ensure /usr/local/src exists with proper permissions
-  file:
-    path: /usr/local/src
-    state: directory
-    owner: root
-    group: staff
-    mode: "2775"
-
-# --- 4. Install Postfix non-interactively ---
-- name: Preseed postfix to avoid prompt
-  debconf:
-    name: postfix
-    question: "postfix/main_mailer_type"
-    value: "Satellite system"
-    vtype: "string"
-
-- name: Install Postfix and dialog
-  apt:
-    name:
-      - postfix
-      - dialog
-    state: present
-    update_cache: yes
-  environment:
-    DEBIAN_FRONTEND: noninteractive
-
-- name: Ensure Postfix service is enabled and running
-  service:
-    name: postfix
-    state: started
-    enabled: yes
-
-# === STEP 2–5: Core dependencies, PHP, MISP Core, CakePHP ===
-
-- name: Install core system dependencies
-  apt:
-    name:
-      - curl
-      - gcc
-      - git
-      - gpg-agent
-      - make
-      - python3
-      - python3-pip
-      - python3-venv
-      - python3-dev
-      - openssl
-      - redis-server
-      - vim
-      - zip
-      - unzip
-      - virtualenv
-      - libfuzzy-dev
-      - sqlite3
-      - moreutils
-      - libxml2-dev
-      - libxslt1-dev
-      - zlib1g-dev
-      - python3-setuptools
-      - mariadb-client
-      - mariadb-server
-      - apache2
-      - apache2-utils
-    state: present
-    update_cache: yes
-
-- name: Ensure required services are enabled
-  service:
-    name: "{{ item }}"
-    state: started
-    enabled: yes
-  loop:
-    - apache2
-    - mariadb
-    - redis-server
-
-- name: Add PHP repository (Ondrej PPA stable)
+- name: Add Docker repository
   apt_repository:
-    repo: ppa:ondrej/php
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
     state: present
     update_cache: yes
 
-- name: Install PHP 7.4 and extensions
+- name: Install Docker Engine and Compose plugin
   apt:
     name:
-      - php7.4
-      - php7.4-cli
-      - php7.4-dev
-      - php7.4-xml
-      - php7.4-mysql
-      - php7.4-mbstring
-      - php7.4-zip
-      - php7.4-intl
-      - php7.4-bcmath
-      - php7.4-gd
-      - php7.4-json
-      - libapache2-mod-php7.4
-      - libgpgme-dev
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
     state: present
 
-- name: Install PECL redis and gnupg extensions
-  shell: |
-    yes '' | pecl install -f redis
-    yes '' | pecl install -f gnupg
-    echo "extension=redis.so" > /etc/php/7.4/mods-available/redis.ini
-    echo "extension=gnupg.so" > /etc/php/7.4/mods-available/gnupg.ini
-    phpenmod redis gnupg
+- name: Ensure Docker service is running
+  service:
+    name: docker
+    state: started
+    enabled: yes
 
-- name: Tune PHP settings for MISP
-  lineinfile:
-    path: /etc/php/7.4/apache2/php.ini
-    regexp: "^{{ item.key }}"
-    line: "{{ item.key }} = {{ item.value }}"
-  loop:
-    - { key: "upload_max_filesize", value: "{{ php_upload_max }}" }
-    - { key: "post_max_size", value: "{{ php_post_max }}" }
-    - { key: "max_execution_time", value: "{{ php_execution_time }}" }
-    - { key: "memory_limit", value: "{{ php_memory_limit }}" }
-
-# --- MISP Core ---
-- name: Clone MISP repository
+# --- 2. Clone official MISP Docker repository ---
+- name: Clone MISP Docker repository
   git:
-    repo: "https://github.com/MISP/MISP.git"
-    dest: "{{ path_to_misp }}"
-    version: "2.4"
-    update: no
+    repo: "{{ misp_repo }}"
+    dest: "{{ misp_path }}"
+    version: "main"
+    force: yes
 
-- name: Initialize MISP submodules
-  command: git submodule update --init --recursive
-  args:
-    chdir: "{{ path_to_misp }}"
-
-- name: Create Python virtual environment for MISP
-  command: python3 -m venv "{{ path_to_misp }}/venv"
-- name: Create pip cache directory
-  file:
-    path: /var/www/.cache
-    owner: "{{ www_user }}"
-    group: "{{ www_user }}"
-    state: directory
-
-- name: Install MISP Python dependencies
-  pip:
-    requirements: "{{ path_to_misp }}/INSTALL/INSTALL.req"
-    virtualenv: "{{ path_to_misp }}/venv"
-  ignore_errors: yes  # some packages are optional
-
-- name: Install Python dependencies
-  pip:
-    name:
-      - ordered-set
-      - python-dateutil
-      - six
-      - weakrefmethod
-      - zmq
-      - redis
-      - python-magic
-      - plyara
-      - php7.4-curl
-    virtualenv: "{{ path_to_misp }}/venv"
-- name: Ensure composer cache directory exists
-  file:
-    path: /var/www/.composer
-    state: directory
-    owner: "{{ www_user }}"
-    group: "{{ www_user }}"
-- name: Install CakePHP via composer (safe for root)
-  shell: |
-    cd {{ path_to_misp }}/app
-    export COMPOSER_ALLOW_SUPERUSER=1
-    php composer.phar install --no-dev --ignore-platform-req=ext-curl
-  args:
-    chdir: "{{ path_to_misp }}/app"
-
-# --- Permissions ---
-- name: Fix ownership and permissions for MISP
-  file:
-    path: "{{ path_to_misp }}"
-    owner: "{{ www_user }}"
-    group: "{{ www_user }}"
-    recurse: yes
-
-# === Database and Apache ===
-- name: Install python3-pymysql
-  apt:
-    name: python3-pymysql
-    state: present
-
-- name: Configure Apache for HTTP only
+# --- 3. Copy environment file ---
+- name: Copy template.env to .env
   copy:
-    dest: /etc/apache2/sites-available/misp.conf
-    content: |
-      <VirtualHost *:80>
-          ServerAdmin admin@{{ fqdn }}
-          ServerName {{ fqdn }}
-          DocumentRoot {{ path_to_misp }}/app/webroot
-          <Directory {{ path_to_misp }}/app/webroot>
-              Options -Indexes
-              AllowOverride All
-              Require all granted
-          </Directory>
-          ErrorLog ${APACHE_LOG_DIR}/misp_error.log
-          CustomLog ${APACHE_LOG_DIR}/misp_access.log combined
-      </VirtualHost>
+    src: "{{ misp_path }}/template.env"
+    dest: "{{ misp_path }}/.env"
+    remote_src: yes
+    mode: "0644"
 
-- name: Enable Apache site and modules
-  shell: |
-    a2enmod rewrite
-    a2ensite misp.conf
-    a2dissite 000-default
-    systemctl reload apache2
+# --- 4. Pull all container images ---
+- name: Pull MISP Docker images
+  shell: docker compose pull
+  args:
+    chdir: "{{ misp_path }}"
 
-# --- Final Ownership ---
-- name: Final permission fix for MISP
-  file:
-    path: "{{ path_to_misp }}"
-    owner: "{{ www_user }}"
-    group: "{{ www_user }}"
-    recurse: yes
+# --- 5. Start the MISP containers ---
+- name: Start MISP stack
+  shell: docker compose up -d
+  args:
+    chdir: "{{ misp_path }}"
+
+# --- 6. Verify HTTP access ---
+- name: Wait for MISP web interface
+  uri:
+    url: "http://localhost"
+    status_code: 200
+    return_content: no
+  register: misp_http
+  retries: 10
+  delay: 15
+  until: misp_http.status == 200
+
+- name: Print MISP status
+  debug:
+    msg: "✅ MISP is up and reachable at http://localhost"

@@ -4,28 +4,6 @@ thehive_es_password: "admin"
 PHP_ETC_BASE: /etc/php/7.4
 PHP_INI: "{{ PHP_ETC_BASE }}/apache2/php.ini"
 
-misp_user: misp
-misp_password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=16') }}"
-
-# --- System Paths ---
-path_to_misp: /var/www/MISP
-
-# --- FQDN ---
-fqdn: soc.innovatech.internal
-
-# --- Database ---
-db_name: misp
-db_user_admin: root
-db_pass_admin: root
-db_user_misp: misp
-db_pass_misp: misp
-
-# --- Web user ---
-www_user: www-data
-
-# --- PHP Settings ---
-php_upload_max: 50M
-php_post_max: 50M
-php_execution_time: 300
-php_memory_limit: 2048M
+misp_repo: "https://github.com/MISP/misp-docker.git"
+misp_path: "/opt/misp-docker"
 
