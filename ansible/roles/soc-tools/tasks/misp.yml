@@ -33,7 +33,13 @@
   loop:
     - redis-server
     - mariadb
-
+- name: Add Ondrej PHP 7.4 repository manually
+  shell: |
+    echo "deb http://ppa.launchpad.net/ondrej/php/ubuntu devel main" > /etc/apt/sources.list.d/ondrej-ubuntu-php-devel.list
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4F4EA0AAE5267A6C
+    apt update
+  args:
+    warn: false
 # --- PHP 7.4 ---
 - name: Install PHP 7.4 and required extensions
   apt:
@@ -58,14 +64,14 @@
 
 - name: Configure PHP settings
   lineinfile:
-    path: /etc/php/7.4/apache2/php.ini
-    regexp: '^{{ item.key }}'
+    path: "{{ PHP_INI }}"
+    regexp: "^{{ item.key }}"
     line: "{{ item.key }} = {{ item.value }}"
   loop:
-    - { key: 'upload_max_filesize', value: '50M' }
-    - { key: 'post_max_size', value: '50M' }
-    - { key: 'max_execution_time', value: '300' }
-    - { key: 'memory_limit', value: '2048M' }
+    - { key: "upload_max_filesize", value: "50M" }
+    - { key: "post_max_size", value: "50M" }
+    - { key: "max_execution_time", value: "300" }
+    - { key: "memory_limit", value: "2048M" }
 
 # --- MISP Source ---
 - name: Clone MISP repository
@@ -96,6 +102,86 @@
   mysql_db:
     name: misp
     state: present
+# --- Step 9: MISP configuration ---
+
+# --- Step 9: MISP configuration (final version) ---
+
+# 9.1 Copy default config templates
+- name: Copy MISP default configs
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: yes
+    owner: www-data
+    group: www-data
+    mode: "0640"
+  loop:
+    - {
+        src: /var/www/MISP/app/Config/bootstrap.default.php,
+        dest: /var/www/MISP/app/Config/bootstrap.php,
+      }
+    - {
+        src: /var/www/MISP/app/Config/core.default.php,
+        dest: /var/www/MISP/app/Config/core.php,
+      }
+    - {
+        src: /var/www/MISP/app/Config/config.default.php,
+        dest: /var/www/MISP/app/Config/config.php,
+      }
+
+# 9.2 Create database.php (DB: misp / password: misp)
+- name: Write database.php
+  copy:
+    dest: /var/www/MISP/app/Config/database.php
+    owner: www-data
+    group: www-data
+    mode: "0640"
+    content: |
+      <?php
+      class DATABASE_CONFIG {
+        public $default = array(
+          'datasource' => 'Database/Mysql',
+          'persistent' => false,
+          'host' => 'localhost',
+          'login' => 'misp',
+          'port' => 3306,
+          'password' => 'misp',
+          'database' => 'misp',
+          'prefix' => '',
+          'encoding' => 'utf8',
+        );
+      }
+
+# 9.3 Set baseurl (HTTP, not HTTPS)
+- name: Set baseurl in config.php
+  lineinfile:
+    path: /var/www/MISP/app/Config/config.php
+    regexp: "('baseurl'\\s*=>).*"
+    line: "  'baseurl' => 'http://siem.innovatech.internal',"
+    backrefs: yes
+
+# 9.4 Configure timezone
+- name: Set timezone in core.php
+  replace:
+    path: /var/www/MISP/app/Config/core.php
+    regexp: "^\\s*//\\s*date_default_timezone_set\\('UTC'\\);"
+    replace: "date_default_timezone_set('Europe/Amsterdam');"
+
+# 9.5 Set random salt (40 chars)
+- name: Set Security.salt in config.php
+  replace:
+    path: /var/www/MISP/app/Config/config.php
+    regexp: "('salt'\\s*=>\\s*)'.*'"
+    replace: "\\1'{{ lookup('password', '/dev/null chars=ascii_letters,digits length=40') }}'"
+
+# 9.6 Fix ownership and permissions
+- name: Fix MISP config permissions
+  file:
+    path: /var/www/MISP/app/Config
+    owner: www-data
+    group: www-data
+    mode: "0750"
+    recurse: yes
 
 # --- Apache Config ---
 - name: Configure Apache for MISP
