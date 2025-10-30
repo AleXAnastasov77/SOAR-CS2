@@ -149,13 +149,14 @@
     - mariadb
     - redis-server
 - name: Check if MISP web interface is reachable
-uri:
-  url: "http://localhost"
-  return_content: yes
-  status_code: 200
-register: misp_check
+  uri:
+    url: "http://localhost"
+    return_content: yes
+    status_code: 200
+  register: misp_check
 
 - name: Print MISP check result
-debug:
-  msg: >
-    MISP is reachable and returned status code {{ misp_check.status }}
+  debug:
+    msg: >
+      MISP is reachable and returned status code {{ misp_check.status }}
+  failed_when: misp_check.status != 200
