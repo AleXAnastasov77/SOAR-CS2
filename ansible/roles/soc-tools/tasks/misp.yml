@@ -125,6 +125,7 @@
       - php7.4-intl
       - php7.4-bcmath
       - php7.4-gd
+      - php7.4-json
       - libapache2-mod-php7.4
       - libgpgme-dev
     state: present
@@ -163,6 +164,18 @@
 
 - name: Create Python virtual environment for MISP
   command: python3 -m venv "{{ path_to_misp }}/venv"
+- name: Create pip cache directory
+  file:
+    path: /var/www/.cache
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+    state: directory
+
+- name: Install MISP Python dependencies
+  pip:
+    requirements: "{{ path_to_misp }}/INSTALL/INSTALL.req"
+    virtualenv: "{{ path_to_misp }}/venv"
+  ignore_errors: yes  # some packages are optional
 
 - name: Install Python dependencies
   pip:
@@ -175,12 +188,21 @@
       - redis
       - python-magic
       - plyara
+      - php7.4-curl
     virtualenv: "{{ path_to_misp }}/venv"
-
-- name: Install CakePHP via composer
+- name: Ensure composer cache directory exists
+  file:
+    path: /var/www/.composer
+    state: directory
+    owner: "{{ www_user }}"
+    group: "{{ www_user }}"
+- name: Install CakePHP via composer (safe for root)
   shell: |
     cd {{ path_to_misp }}/app
-    php composer.phar install --no-dev
+    export COMPOSER_ALLOW_SUPERUSER=1
+    php composer.phar install --no-dev --ignore-platform-req=ext-curl
+  args:
+    chdir: "{{ path_to_misp }}/app"
 
 # --- Permissions ---
 - name: Fix ownership and permissions for MISP
