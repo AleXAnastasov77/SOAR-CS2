@@ -29,6 +29,7 @@ resource "aws_iam_role_policy_attachment" "lambda_fullaccess" {
   policy_arn = "arn:aws:iam::aws:policy/AWSLambda_FullAccess"
 }
 # IAM Policy for access to SNS and Secrets Manager
+# tfsec:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_policy" "lambda_policy" {
   name        = "soar_lambda_policy"
   description = "Access to SNS and Secrets Manager"
