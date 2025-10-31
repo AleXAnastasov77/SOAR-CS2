@@ -1,6 +1,7 @@
 # Simple Notification Service (For alerts)
 resource "aws_sns_topic" "sns_soar" {
-  name = "soar_notifications"
+  name              = "soar_notifications"
+  kms_master_key_id = "alias/aws/sns"
 }
 
 # Step function
