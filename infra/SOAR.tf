@@ -60,7 +60,6 @@ resource "aws_lambda_function" "check_misp" {
   role             = aws_iam_role.lambda_role.arn
   filename         = data.archive_file.check_misp.output_path
   source_code_hash = data.archive_file.check_misp.output_base64sha256
-  depends_on       = [data.archive_file.check_misp]
 }
 
 resource "aws_lambda_function" "create_case" {
@@ -70,7 +69,6 @@ resource "aws_lambda_function" "create_case" {
   role             = aws_iam_role.lambda_role.arn
   filename         = data.archive_file.create_case.output_path
   source_code_hash = data.archive_file.check_misp.output_base64sha256
-  depends_on       = [data.archive_file.create_case]
 }
 
 resource "aws_lambda_function" "block_ip" {
@@ -80,7 +78,6 @@ resource "aws_lambda_function" "block_ip" {
   role             = aws_iam_role.lambda_role.arn
   filename         = data.archive_file.block_ip.output_path
   source_code_hash = data.archive_file.check_misp.output_base64sha256
-  depends_on       = [data.archive_file.block_ip]
 }
 resource "aws_lambda_function" "send_to_elastic" {
   function_name = "send_to_elastic"
@@ -89,7 +86,6 @@ resource "aws_lambda_function" "send_to_elastic" {
   role          = aws_iam_role.lambda_role.arn
   filename      = data.archive_file.send_to_elastic.output_path
   timeout       = 15
-  depends_on    = [data.archive_file.send_to_elastic]
 }
 resource "aws_lambda_function" "notify" {
   function_name = "notify"
@@ -97,7 +93,6 @@ resource "aws_lambda_function" "notify" {
   runtime       = "python3.12"
   role          = aws_iam_role.lambda_role.arn
   filename      = data.archive_file.notify.output_path
-  depends_on    = [data.archive_file.notify]
   environment {
     variables = {
       TOPIC_ARN = aws_sns_topic.sns_soar.arn
