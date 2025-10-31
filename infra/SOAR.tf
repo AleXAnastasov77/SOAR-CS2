@@ -58,8 +58,8 @@ resource "aws_lambda_function" "check_misp" {
   handler          = "check_misp.lambda_handler"
   runtime          = "python3.12"
   role             = aws_iam_role.lambda_role.arn
-  filename         = data.archive_file.check_misp.output_path
-  source_code_hash = data.archive_file.check_misp.output_base64sha256
+  filename         = "${path.module}/lambdas/check_misp.zip"
+  source_code_hash = filebase64sha256("${path.module}/lambdas/check_misp.zip")
 }
 
 resource "aws_lambda_function" "create_case" {
@@ -67,8 +67,8 @@ resource "aws_lambda_function" "create_case" {
   handler          = "create_case.lambda_handler"
   runtime          = "python3.12"
   role             = aws_iam_role.lambda_role.arn
-  filename         = data.archive_file.create_case.output_path
-  source_code_hash = data.archive_file.check_misp.output_base64sha256
+  filename         = "${path.module}/lambdas/create_case.zip"
+  source_code_hash = filebase64sha256("${path.module}/lambdas/create_case.zip")
 }
 
 resource "aws_lambda_function" "block_ip" {
@@ -76,23 +76,24 @@ resource "aws_lambda_function" "block_ip" {
   handler          = "block_ip.lambda_handler"
   runtime          = "python3.12"
   role             = aws_iam_role.lambda_role.arn
-  filename         = data.archive_file.block_ip.output_path
-  source_code_hash = data.archive_file.check_misp.output_base64sha256
+  filename         = "${path.module}/lambdas/block_ip.zip"
+  source_code_hash = filebase64sha256("${path.module}/lambdas/block_ip.zip")
 }
 resource "aws_lambda_function" "send_to_elastic" {
-  function_name = "send_to_elastic"
-  handler       = "send_to_elastic.lambda_handler"
-  runtime       = "python3.12"
-  role          = aws_iam_role.lambda_role.arn
-  filename      = data.archive_file.send_to_elastic.output_path
-  timeout       = 15
+  function_name    = "send_to_elastic"
+  handler          = "send_to_elastic.lambda_handler"
+  runtime          = "python3.12"
+  role             = aws_iam_role.lambda_role.arn
+  filename         = "${path.module}/lambdas/send_to_elastic.zip"
+  source_code_hash = filebase64sha256("${path.module}/lambdas/send_to_elastic.zip")
 }
 resource "aws_lambda_function" "notify" {
-  function_name = "notify"
-  handler       = "notify.lambda_handler"
-  runtime       = "python3.12"
-  role          = aws_iam_role.lambda_role.arn
-  filename      = data.archive_file.notify.output_path
+  function_name    = "notify"
+  handler          = "notify.lambda_handler"
+  runtime          = "python3.12"
+  role             = aws_iam_role.lambda_role.arn
+  filename         = "${path.module}/lambdas/send_to_elastic.zip"
+  source_code_hash = filebase64sha256("${path.module}/lambdas/send_to_elastic.zip")
   environment {
     variables = {
       TOPIC_ARN = aws_sns_topic.sns_soar.arn
