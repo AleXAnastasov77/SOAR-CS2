@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "6.13.0"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2.4"
+    }
   }
   backend "s3" {
     bucket       = "tfstate-alex-cs2"
