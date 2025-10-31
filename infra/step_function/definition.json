@@ -1,0 +1,47 @@
+{
+  "Comment": "SOAR automation workflow",
+  "StartAt": "CheckAlertType",
+  "States": {
+    "CheckAlertType": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.source",
+          "StringEquals": "Snort",
+          "Next": "CheckMISP"
+        },
+        {
+          "Variable": "$.source",
+          "StringEquals": "OpenVAS",
+          "Next": "CreateCase"
+        },
+        {
+          "Variable": "$.source",
+          "StringEquals": "Wazuh",
+          "Next": "CreateCase"
+        }
+      ],
+      "Default": "Notify"
+    },
+    "CheckMISP": {
+      "Type": "Task",
+      "Resource": "${check_misp_lambda_arn}",
+      "Next": "CreateCase"
+    },
+    "CreateCase": {
+      "Type": "Task",
+      "Resource": "${create_case_lambda_arn}",
+      "Next": "BlockIP"
+    },
+    "BlockIP": {
+      "Type": "Task",
+      "Resource": "${block_ip_lambda_arn}",
+      "Next": "Notify"
+    },
+    "Notify": {
+      "Type": "Task",
+      "Resource": "${notify_lambda_arn}",
+      "End": true
+    }
+  }
+}
