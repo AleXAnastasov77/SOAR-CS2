@@ -80,12 +80,15 @@ resource "aws_lambda_function" "notify" {
   filename      = data.archive_file.notify.output_path
 }
 resource "aws_sfn_state_machine" "soar_workflow" {
-  name       = "soar-stepfunction"
-  role_arn   = aws_iam_role.stepfunction_role.arn
-  definition = file("${path.module}/step_function/definition.json")
-
+  name     = "soar-stepfunction"
+  role_arn = aws_iam_role.stepfunction_role.arn
+  definition = templatefile("${path.module}/step_function/definition.json", {
+    check_misp_arn  = aws_lambda_function.check_misp.arn
+    create_case_arn = aws_lambda_function.create_case.arn
+    block_ip_arn    = aws_lambda_function.block_ip.arn
+    notify_arn      = aws_lambda_function.notify.arn
+  })
 }
-
 # API Gateway
 resource "aws_apigatewayv2_api" "soar_api" {
   name          = "soar_api"

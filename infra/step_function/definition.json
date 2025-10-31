@@ -25,22 +25,22 @@
     },
     "CheckMISP": {
       "Type": "Task",
-      "Resource": "${check_misp_lambda_arn}",
+      "Resource": "${check_misp_arn}",
       "Next": "CreateCase"
     },
     "CreateCase": {
       "Type": "Task",
-      "Resource": "${create_case_lambda_arn}",
+      "Resource": "${create_case_arn}",
       "Next": "BlockIP"
     },
     "BlockIP": {
       "Type": "Task",
-      "Resource": "${block_ip_lambda_arn}",
+      "Resource": "${block_ip_arn}",
       "Next": "Notify"
     },
     "Notify": {
       "Type": "Task",
-      "Resource": "${notify_lambda_arn}",
+      "Resource": "${notify_arn}",
       "End": true
     }
   }
