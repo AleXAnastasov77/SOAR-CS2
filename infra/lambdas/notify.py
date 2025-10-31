@@ -1,5 +1,6 @@
 import json
 import boto3
+import os
 
 def lambda_handler(event, context):
     """
@@ -7,7 +8,7 @@ def lambda_handler(event, context):
     Input:  {"ip": "...", "malicious": bool, "case_id": "...", "blocked": bool}
     """
     sns = boto3.client("sns")
-    topic_arn = "arn:aws:sns:eu-central-1:YOUR_ACCOUNT_ID:soar_notifications"  # <-- Replace or inject via env var
+    topic_arn = os.environ.get("TOPIC_ARN")
 
     subject = f"SOAR Alert - {event.get('ip', 'Unknown IP')}"
     message = {
@@ -28,3 +29,10 @@ def lambda_handler(event, context):
         return {"status": "notification_sent", "ip": event.get("ip")}
     except Exception as e:
         return {"error": str(e)}
+if __name__ == "__main__":
+    print(json.dumps(lambda_handler({
+        'ip': '185.14.31.98',
+        'malicious': True,
+        'blocked': True,
+        'case_id': 'test123'
+    }, None), indent=2))

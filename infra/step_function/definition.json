@@ -42,6 +42,11 @@
       "Type": "Task",
       "Resource": "${notify_arn}",
       "End": true
+    },
+    "SendToElastic": {
+      "Type": "Task",
+      "Resource": "${send_to_elastic_arn}",
+      "End": true
     }
   }
 }

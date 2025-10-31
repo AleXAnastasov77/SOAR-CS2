@@ -45,3 +45,8 @@ def lambda_handler(event, context):
 
     except Exception as e:
         return {"error": str(e), "title": title}
+if __name__ == "__main__":
+    print(json.dumps(lambda_handler({
+        'title': 'Test Case',
+        'description': 'Manual test from local run'
+    }, None), indent=2))

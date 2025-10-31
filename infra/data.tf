@@ -55,3 +55,8 @@ data "archive_file" "create_case" {
   source_file = "${path.module}/lambdas/create_case.py"
   output_path = "${path.module}/lambdas/create_case.zip"
 }
+data "archive_file" "send_to_elastic" {
+  type        = "zip"
+  source_file = "${path.module}/lambdas/send_to_elastic.py"
+  output_path = "${path.module}/lambdas/send_to_elastic.zip"
+}
