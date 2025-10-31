@@ -1,7 +1,47 @@
+# Customer key for the SNS
+resource "aws_kms_key" "sns_cmk" {
+  description = "Customer-managed key for SNS encryption"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # Allow account admins full access
+      {
+        Sid       = "AllowAccountAdmins"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::123456789012:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      # Allow SNS to use this key for encryption
+      {
+        Sid       = "AllowSNSUse"
+        Effect    = "Allow"
+        Principal = { Service = "sns.amazonaws.com" }
+        Action = [
+          "kms:GenerateDataKey*",
+          "kms:Decrypt"
+        ]
+        Resource = "*"
+      },
+      # Allow your Lambda to decrypt messages from SNS
+      {
+        Sid       = "AllowLambdaUse"
+        Effect    = "Allow"
+        Principal = { AWS = aws_iam_role.lambda_role.arn }
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
 # Simple Notification Service (For alerts)
 resource "aws_sns_topic" "sns_soar" {
   name              = "soar_notifications"
-  kms_master_key_id = "alias/aws/sns"
+  kms_master_key_id = aws_kms_key.sns_cmk.arn
 }
 
 # Step function

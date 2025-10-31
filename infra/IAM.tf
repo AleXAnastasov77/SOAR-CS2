@@ -38,7 +38,7 @@ resource "aws_iam_policy" "lambda_policy" {
     Statement = [
       {
         Action   = ["secretsmanager:GetSecretValue"],
-        Resource = "arn:aws:secretsmanager:eu-central-1:057827529833:secret:soar-*",
+        Resource = "arn:aws:secretsmanager:eu-central-1:057827529833:secret:soar-hNwDoe",
         Effect   = "Allow"
       },
       {
