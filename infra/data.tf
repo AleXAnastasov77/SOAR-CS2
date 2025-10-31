@@ -33,3 +33,25 @@ data "aws_ssm_parameter" "security_ami" {
 data "aws_ssm_parameter" "soc_ami" {
   name = "/soar/ami/soc-tools"
 }
+
+# PYTHON SCRIPTS
+data "archive_file" "block_ip" {
+  type        = "zip"
+  source_file = "${path.module}/lambdas/block_ip.py"
+  output_path = "${path.module}/lambdas/block_ip.zip"
+}
+data "archive_file" "notify" {
+  type        = "zip"
+  source_file = "${path.module}/lambdas/notify.py"
+  output_path = "${path.module}/lambdas/notify.zip"
+}
+data "archive_file" "check_misp" {
+  type        = "zip"
+  source_file = "${path.module}/lambdas/check_misp.py"
+  output_path = "${path.module}/lambdas/check_misp.zip"
+}
+data "archive_file" "create_case" {
+  type        = "zip"
+  source_file = "${path.module}/lambdas/create_case.py"
+  output_path = "${path.module}/lambdas/create_case.zip"
+}

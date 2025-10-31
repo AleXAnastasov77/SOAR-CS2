@@ -45,6 +45,14 @@ resource "aws_iam_policy" "lambda_policy" {
         Action   = ["sns:Publish"],
         Resource = aws_sns_topic.sns_soar.arn,
         Effect   = "Allow"
+      },
+      {
+        Action = [
+          "ec2:DescribeSecurityGroups",
+          "ec2:RevokeSecurityGroupIngress"
+        ],
+        Resource = "*",
+        Effect   = "Allow"
       }
     ]
   })
