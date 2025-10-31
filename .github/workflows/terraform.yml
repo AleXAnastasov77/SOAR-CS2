@@ -87,6 +87,17 @@ jobs:
     environment: dev
 
     steps:
+      - name: Prepare Lambda source zips
+        run: |
+          cd infra
+          mkdir -p lambdas
+          echo "Packaging Lambda functions..."
+          zip -j lambdas/check_misp.zip lambdas/check_misp.py
+          zip -j lambdas/create_case.zip lambdas/create_case.py
+          zip -j lambdas/block_ip.zip lambdas/block_ip.py
+          zip -j lambdas/notify.zip lambdas/notify.py
+          zip -j lambdas/send_to_elastic.zip lambdas/send_to_elastic.py
+          
       - name: Checkout repository
         uses: actions/checkout@v4
 

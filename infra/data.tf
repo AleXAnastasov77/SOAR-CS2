@@ -35,28 +35,3 @@ data "aws_ssm_parameter" "soc_ami" {
 }
 
 # PYTHON SCRIPTS
-data "archive_file" "block_ip" {
-  type        = "zip"
-  source_file = "${path.module}/lambdas/block_ip.py"
-  output_path = "${path.module}/lambdas/block_ip.zip"
-}
-data "archive_file" "notify" {
-  type        = "zip"
-  source_file = "${path.module}/lambdas/notify.py"
-  output_path = "${path.module}/lambdas/notify.zip"
-}
-data "archive_file" "check_misp" {
-  type        = "zip"
-  source_file = "${path.module}/lambdas/check_misp.py"
-  output_path = "${path.module}/lambdas/check_misp.zip"
-}
-data "archive_file" "create_case" {
-  type        = "zip"
-  source_file = "${path.module}/lambdas/create_case.py"
-  output_path = "${path.module}/lambdas/create_case.zip"
-}
-data "archive_file" "send_to_elastic" {
-  type        = "zip"
-  source_file = "${path.module}/lambdas/send_to_elastic.py"
-  output_path = "${path.module}/lambdas/send_to_elastic.zip"
-}

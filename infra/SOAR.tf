@@ -3,28 +3,44 @@ resource "aws_kms_key" "sns_cmk" {
   description = "Customer-managed key for SNS encryption"
 
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [
-      # Allow SNS to use this key for encryption
       {
-        Sid       = "AllowSNSUse"
-        Effect    = "Allow"
-        Principal = { Service = "sns.amazonaws.com" }
-        Action = [
-          "kms:GenerateDataKey*",
-          "kms:Decrypt"
-        ]
+        Sid    = "AllowRootAccountFullAccess",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
         Resource = "*"
       },
-      # Allow your Lambda to decrypt messages from SNS
       {
-        Sid       = "AllowLambdaUse"
-        Effect    = "Allow"
-        Principal = { AWS = aws_iam_role.lambda_role.arn }
+        Sid    = "AllowSNSServiceUse",
+        Effect = "Allow",
+        Principal = {
+          Service = "sns.amazonaws.com"
+        },
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ],
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowGitHubOIDC",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::057827529833:role/GitHubActionsPipeline"
+        },
         Action = [
           "kms:Decrypt",
+          "kms:Encrypt",
+          "kms:DescribeKey",
           "kms:GenerateDataKey*"
-        ]
+        ],
         Resource = "*"
       }
     ]
