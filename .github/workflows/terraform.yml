@@ -56,6 +56,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Prepare Lambda source zips
+        run: |
+          cd infra
+          mkdir -p lambdas
+          echo "Packaging Lambda functions..."
+          zip -j lambdas/check_misp.zip lambdas/check_misp.py
+          zip -j lambdas/create_case.zip lambdas/create_case.py
+          zip -j lambdas/block_ip.zip lambdas/block_ip.py
+          zip -j lambdas/notify.zip lambdas/notify.py
+          zip -j lambdas/send_to_elastic.zip lambdas/send_to_elastic.py  
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -86,7 +97,10 @@ jobs:
     needs: terraform-plan
     environment: dev
 
+          
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Prepare Lambda source zips
         run: |
           cd infra
@@ -97,9 +111,6 @@ jobs:
           zip -j lambdas/block_ip.zip lambdas/block_ip.py
           zip -j lambdas/notify.zip lambdas/notify.py
           zip -j lambdas/send_to_elastic.zip lambdas/send_to_elastic.py
-          
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
