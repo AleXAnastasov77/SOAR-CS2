@@ -48,13 +48,6 @@ resource "aws_api_gateway_method_response" "ok" {
   status_code = "200"
 }
 
-resource "aws_api_gateway_integration_response" "ok" {
-  rest_api_id = aws_api_gateway_rest_api.soar_api.id
-  resource_id = aws_api_gateway_resource.alert.id
-  http_method = aws_api_gateway_method.alert_post.http_method
-  status_code = "200"
-}
-
 resource "aws_api_gateway_deployment" "soar_deploy" {
   rest_api_id = aws_api_gateway_rest_api.soar_api.id
 
