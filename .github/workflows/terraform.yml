@@ -42,7 +42,6 @@ jobs:
           working_directory: infra
           additional_args: --minimum-severity HIGH
 
-
       - name: Run Gitleaks (Secrets Scan)
         uses: gitleaks/gitleaks-action@v2
         with:
@@ -56,7 +55,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
+
       - name: Prepare Lambda source zips
         run: |
           cd infra
@@ -66,8 +65,12 @@ jobs:
           zip -j lambdas/create_case.zip lambdas/create_case.py
           zip -j lambdas/block_ip.zip lambdas/block_ip.py
           zip -j lambdas/notify.zip lambdas/notify.py
-          zip -j lambdas/send_to_elastic.zip lambdas/send_to_elastic.py  
-
+          zip -j lambdas/send_to_elastic.zip lambdas/send_to_elastic.py
+      - name: Upload Lambda Zips
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-zips
+          path: infra/lambdas/*.zip
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -97,20 +100,14 @@ jobs:
     needs: terraform-plan
     environment: dev
 
-          
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Prepare Lambda source zips
-        run: |
-          cd infra
-          mkdir -p lambdas
-          echo "Packaging Lambda functions..."
-          zip -j lambdas/check_misp.zip lambdas/check_misp.py
-          zip -j lambdas/create_case.zip lambdas/create_case.py
-          zip -j lambdas/block_ip.zip lambdas/block_ip.py
-          zip -j lambdas/notify.zip lambdas/notify.py
-          zip -j lambdas/send_to_elastic.zip lambdas/send_to_elastic.py
+      - name: Download Lambda Zips
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-zips
+          path: infra/lambdas
 
       - name: Download Plan Artifact
         uses: actions/download-artifact@v4
