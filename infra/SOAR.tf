@@ -111,16 +111,4 @@ resource "aws_sfn_state_machine" "soar_workflow" {
     send_to_elastic_arn = aws_lambda_function.send_to_elastic.arn
   })
 }
-# API Gateway
-resource "aws_apigatewayv2_api" "soar_api" {
-  name          = "soar_api"
-  protocol_type = "HTTP"
-}
-# API Gateway attachment to step function
 
-resource "aws_apigatewayv2_integration" "stepfunction_integration" {
-  api_id             = aws_apigatewayv2_api.soar_api.id
-  integration_type   = "AWS_PROXY"
-  integration_uri    = aws_sfn_state_machine.soar_workflow.arn
-  integration_method = "POST"
-}
