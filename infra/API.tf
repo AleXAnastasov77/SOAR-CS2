@@ -57,7 +57,6 @@ resource "aws_api_gateway_deployment" "soar_deploy" {
       aws_api_gateway_method.alert_post.id,
       aws_api_gateway_integration.stepfn_integration.id,
       aws_api_gateway_method_response.ok.id,
-      aws_api_gateway_integration_response.ok.id
     ]))
   }
 
