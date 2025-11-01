@@ -6,6 +6,15 @@ resource "aws_kms_key" "sns_cmk" {
     Version = "2012-10-17",
     Statement = [
       {
+        Sid    = "EnableRootPermissions",
+        Effect = "Allow",
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        },
+        Action   = "kms:*",
+        Resource = "*"
+      },
+      {
         Sid    = "AllowSNSServiceUse",
         Effect = "Allow",
         Principal = {
