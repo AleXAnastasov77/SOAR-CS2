@@ -62,7 +62,7 @@ resource "aws_api_gateway_integration" "stepfn_integration" {
   type                    = "AWS"
   uri                     = "arn:aws:apigateway:${var.region}:states:action/StartExecution"
 
-  credentials = aws_iam_role.stepfunction_role.arn
+  credentials = aws_iam_role.api_gateway_stepfn_role.arn
 
   request_templates = {
     "application/json" = <<EOF
@@ -104,8 +104,8 @@ resource "aws_api_gateway_stage" "dev" {
   rest_api_id   = aws_api_gateway_rest_api.soar_api.id
   deployment_id = aws_api_gateway_deployment.soar_deploy.id
   stage_name    = "dev"
-  access_log_settings {
-    destination_arn = aws_cloudwatch_log_group.api_logs.arn
-    format          = "$context.requestId $context.status $context.error.messageString $context.integration.error"
-  }
+  # access_log_settings {
+  #   destination_arn = aws_cloudwatch_log_group.api_logs.arn
+  #   format          = "$context.requestId $context.status $context.error.messageString $context.integration.error"
+  # }
 }
