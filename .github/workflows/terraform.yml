@@ -68,20 +68,21 @@ jobs:
             # Create temp build dir
             mkdir -p lambdas_build/$fn
 
-            # Install dependencies into that build dir
+            # Install dependencies
             pip install requests pymisp -t lambdas_build/$fn/
 
-            # Copy the lambda source file (already inside infra/lambdas/)
+            # Copy lambda source file (already in infra/lambdas)
             cp lambdas/$fn.py lambdas_build/$fn/
 
             # Zip everything into a flat structure
             cd lambdas_build/$fn
-            zip -r ../../../lambdas/$fn.zip .
+            zip -r ../../lambdas/$fn.zip .
             cd ../../..
 
           done
 
           echo "✅ All Lambda packages built successfully."
+
 
       - name: Upload Lambda Zips
         uses: actions/upload-artifact@v4
