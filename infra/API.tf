@@ -13,6 +13,7 @@ resource "aws_api_gateway_rest_api" "soar_api" {
   endpoint_configuration {
     types            = ["PRIVATE"]
     vpc_endpoint_ids = [aws_vpc_endpoint.vpc_endpoint.id]
+    ip_address_type  = "dualstack"
   }
 }
 resource "aws_api_gateway_rest_api_policy" "soar_policy" {
