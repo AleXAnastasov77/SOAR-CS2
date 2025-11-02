@@ -21,28 +21,51 @@
           "Next": "CreateCase"
         }
       ],
-      "Default": "Notify"
+      "Default": "NotifySafe"
     },
+
     "CheckMISP": {
       "Type": "Task",
       "Resource": "${check_misp_arn}",
-      "Next": "CreateCase"
+      "Next": "IsMalicious"
     },
+
+    "IsMalicious": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.malicious",
+          "BooleanEquals": true,
+          "Next": "CreateCase"
+        }
+      ],
+      "Default": "NotifySafe"
+    },
+
     "CreateCase": {
       "Type": "Task",
       "Resource": "${create_case_arn}",
       "Next": "BlockIP"
     },
+
     "BlockIP": {
       "Type": "Task",
       "Resource": "${block_ip_arn}",
       "Next": "Notify"
     },
+
     "Notify": {
       "Type": "Task",
       "Resource": "${notify_arn}",
       "Next": "SendToElastic"
     },
+
+    "NotifySafe": {
+      "Type": "Task",
+      "Resource": "${notify_arn}",
+      "Next": "SendToElastic"
+    },
+
     "SendToElastic": {
       "Type": "Task",
       "Resource": "${send_to_elastic_arn}",

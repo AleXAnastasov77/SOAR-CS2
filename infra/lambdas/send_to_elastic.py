@@ -1,23 +1,38 @@
-import json
-import requests
+import json, os, requests
+from requests.auth import HTTPBasicAuth
+from datetime import datetime, timezone
 
 def lambda_handler(event, context):
-    """
-    Send the SOAR event summary to Elasticsearch index 'soar-alerts'.
-    """
-    elastic_url = "http://siem.innovatech.internal:9200/soar-alerts/_doc"
+    # --- Env ---
+    es_host  = os.environ.get("ES_HOST", "http://siem.innovatech.internal:9200")
+    es_user  = os.environ.get("ES_USER", "elastic")
+    es_pass  = os.environ.get("ES_PASS")
+    es_index = os.environ.get("ES_INDEX", "soar-alerts")
 
-    # event already contains full workflow data
+    # --- Ensure timestamp ---
+    doc = dict(event)  # shallow copy
+    doc.setdefault("@timestamp", datetime.now(timezone.utc).isoformat())
+
+    # --- Send ---
+    url = f"{es_host}/{es_index}/_doc"
     try:
-        r = requests.post(elastic_url, json=event, timeout=10)
+        r = requests.post(
+            url, json=doc,
+            auth=HTTPBasicAuth(es_user, es_pass),
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+            verify=False
+        )
         r.raise_for_status()
-        return {"status": "sent_to_elastic", "elastic_result": r.json()}
+        return {"status": "sent_to_elastic", "result": r.json()}
     except Exception as e:
         return {"error": str(e)}
+
 if __name__ == "__main__":
+    os.environ["ES_HOST"]="https://siem.innovatech.internal:9200"
+    os.environ["ES_USER"]="elastic"
+    os.environ["ES_PASS"]="shield"
+    os.environ["ES_INDEX"]="soar-alerts"
     print(json.dumps(lambda_handler({
-        'ip': '185.14.31.98',
-        'malicious': True,
-        'blocked': True,
-        'case_id': 'test123'
+        "ip":"185.14.31.98","malicious":True,"blocked":True,"case_id":"test123"
     }, None), indent=2))

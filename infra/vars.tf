@@ -13,3 +13,9 @@ variable "tags" {
     owner       = "Aleks Anastasov"
   }
 }
+
+variable "elastic_password" {
+  description = "Password to Elastic Search"
+  type        = string
+  sensitive   = true
+}

@@ -86,6 +86,14 @@ resource "aws_lambda_function" "send_to_elastic" {
   role             = aws_iam_role.lambda_role.arn
   filename         = "${path.module}/lambdas/send_to_elastic.zip"
   source_code_hash = filebase64sha256("${path.module}/lambdas/send_to_elastic.zip")
+  environment {
+    variables = {
+      ES_HOST  = "http://siem.innovatech.internal:9200"
+      ES_USER  = "elastic"
+      ES_PASS  = var.elastic_password
+      ES_INDEX = "soar-alerts"
+    }
+  }
 }
 resource "aws_lambda_function" "notify" {
   function_name    = "notify"
