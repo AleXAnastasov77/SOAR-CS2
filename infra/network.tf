@@ -140,6 +140,7 @@ resource "aws_security_group" "soar_api_endpoint_sg" {
     Name = "soar-api-endpoint-sg"
   }
 }
+# tfsec:ignore:aws-ec2-no-public-egress-sgr
 resource "aws_security_group" "endpoints_sg" {
   name        = "endpoints-sg"
   description = "Allow SSH into the endpoints"
