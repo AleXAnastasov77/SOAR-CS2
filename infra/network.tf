@@ -109,6 +109,37 @@ resource "aws_route_table_association" "d" {
 
 # ////////////////////// SECURITY GROUPS //////////////////////////
 # tfsec:ignore:aws-ec2-no-public-egress-sgr
+resource "aws_security_group" "soar_api_endpoint_sg" {
+  name        = "soar-api-endpoint-sg"
+  description = "Allow Kibana EC2 instances to reach private API Gateway endpoint"
+  vpc_id      = aws_vpc.vpc_cs2.id
+
+  ingress {
+    description = "Allow HTTPS from VPC"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+  ingress {
+    description = "Allow HTTP from VPC"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "soar-api-endpoint-sg"
+  }
+}
 resource "aws_security_group" "endpoints_sg" {
   name        = "endpoints-sg"
   description = "Allow SSH into the endpoints"

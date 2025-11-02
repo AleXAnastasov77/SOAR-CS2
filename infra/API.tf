@@ -1,8 +1,41 @@
 # === REST API ===
+resource "aws_vpc_endpoint" "vpc_endpoint" {
+  private_dns_enabled = true
+  security_group_ids  = [aws_security_group.soar_api_endpoint_sg.id]
+  service_name        = "com.amazonaws.${var.region}.execute-api"
+  subnet_ids          = [aws_subnet.privateSIEM_cs2.id, aws_subnet.privateSecurityTools_cs2.id, aws_subnet.privateSOCTools_cs2.id]
+  vpc_endpoint_type   = "Interface"
+  vpc_id              = aws_vpc.vpc_cs2.id
+}
 resource "aws_api_gateway_rest_api" "soar_api" {
   name        = "soar_api"
   description = "SOAR REST API to trigger Step Function"
+  endpoint_configuration {
+    types            = ["PRIVATE"]
+    vpc_endpoint_ids = [aws_vpc_endpoint.vpc_endpoint.id]
+  }
 }
+resource "aws_api_gateway_rest_api_policy" "soar_policy" {
+  rest_api_id = aws_api_gateway_rest_api.soar_api.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "execute-api:Invoke"
+        Resource  = "*"
+        Condition = {
+          StringEquals = {
+            "aws:SourceVpce" = aws_vpc_endpoint.vpc_endpoint.id
+          }
+        }
+      }
+    ]
+  })
+}
+
 
 # Add /alert endpoint
 resource "aws_api_gateway_resource" "alert" {
