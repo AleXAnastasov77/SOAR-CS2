@@ -60,6 +60,10 @@ resource "aws_lambda_function" "check_misp" {
   role             = aws_iam_role.lambda_role.arn
   filename         = "${path.module}/lambdas/check_misp.zip"
   source_code_hash = filebase64sha256("${path.module}/lambdas/check_misp.zip")
+  vpc_config {
+    subnet_ids         = [aws_subnet.privateSecurityTools_cs2.id, aws_subnet.privateSIEM_cs2.id, aws_subnet.privateSOCTools_cs2.id]
+    security_group_ids = [aws_security_group.endpoints_sg.id]
+  }
 }
 
 resource "aws_lambda_function" "create_case" {
@@ -69,6 +73,10 @@ resource "aws_lambda_function" "create_case" {
   role             = aws_iam_role.lambda_role.arn
   filename         = "${path.module}/lambdas/create_case.zip"
   source_code_hash = filebase64sha256("${path.module}/lambdas/create_case.zip")
+  vpc_config {
+    subnet_ids         = [aws_subnet.privateSecurityTools_cs2.id, aws_subnet.privateSIEM_cs2.id, aws_subnet.privateSOCTools_cs2.id]
+    security_group_ids = [aws_security_group.endpoints_sg.id]
+  }
 }
 
 resource "aws_lambda_function" "block_ip" {
@@ -78,6 +86,10 @@ resource "aws_lambda_function" "block_ip" {
   role             = aws_iam_role.lambda_role.arn
   filename         = "${path.module}/lambdas/block_ip.zip"
   source_code_hash = filebase64sha256("${path.module}/lambdas/block_ip.zip")
+  vpc_config {
+    subnet_ids         = [aws_subnet.privateSecurityTools_cs2.id, aws_subnet.privateSIEM_cs2.id, aws_subnet.privateSOCTools_cs2.id]
+    security_group_ids = [aws_security_group.endpoints_sg.id]
+  }
 }
 resource "aws_lambda_function" "send_to_elastic" {
   function_name    = "send_to_elastic"
@@ -86,6 +98,10 @@ resource "aws_lambda_function" "send_to_elastic" {
   role             = aws_iam_role.lambda_role.arn
   filename         = "${path.module}/lambdas/send_to_elastic.zip"
   source_code_hash = filebase64sha256("${path.module}/lambdas/send_to_elastic.zip")
+  vpc_config {
+    subnet_ids         = [aws_subnet.privateSecurityTools_cs2.id, aws_subnet.privateSIEM_cs2.id, aws_subnet.privateSOCTools_cs2.id]
+    security_group_ids = [aws_security_group.endpoints_sg.id]
+  }
   environment {
     variables = {
       ES_HOST  = "http://siem.innovatech.internal:9200"
@@ -100,8 +116,12 @@ resource "aws_lambda_function" "notify" {
   handler          = "notify.lambda_handler"
   runtime          = "python3.12"
   role             = aws_iam_role.lambda_role.arn
-  filename         = "${path.module}/lambdas/send_to_elastic.zip"
+  filename         = "${path.module}/lambdas/notify.zip"
   source_code_hash = filebase64sha256("${path.module}/lambdas/send_to_elastic.zip")
+  vpc_config {
+    subnet_ids         = [aws_subnet.privateSecurityTools_cs2.id, aws_subnet.privateSIEM_cs2.id, aws_subnet.privateSOCTools_cs2.id]
+    security_group_ids = [aws_security_group.endpoints_sg.id]
+  }
   environment {
     variables = {
       TOPIC_ARN = aws_sns_topic.sns_soar.arn

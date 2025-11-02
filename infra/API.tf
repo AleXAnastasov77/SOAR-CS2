@@ -67,20 +67,33 @@ resource "aws_api_gateway_integration" "stepfn_integration" {
   request_templates = {
     "application/json" = <<EOF
 {
+  "input": "$util.escapeJavaScript($input.body)"
   "stateMachineArn": "${aws_sfn_state_machine.soar_workflow.arn}",
-  "input": $input.body
 }
 EOF
   }
 }
+resource "aws_api_gateway_integration_response" "stepfn_response" {
+  rest_api_id = aws_api_gateway_rest_api.soar_api.id
+  resource_id = aws_api_gateway_resource.alert.id
+  http_method = aws_api_gateway_method.alert_post.http_method
+  status_code = "200"
 
+  response_templates = {
+    "application/json" = ""
+  }
+}
 
 resource "aws_api_gateway_method_response" "ok" {
   rest_api_id = aws_api_gateway_rest_api.soar_api.id
   resource_id = aws_api_gateway_resource.alert.id
   http_method = aws_api_gateway_method.alert_post.http_method
   status_code = "200"
+  response_models = {
+    "application/json" = "Empty"
+  }
 }
+
 
 resource "aws_api_gateway_deployment" "soar_deploy" {
   rest_api_id = aws_api_gateway_rest_api.soar_api.id
