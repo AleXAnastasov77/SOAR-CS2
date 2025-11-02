@@ -50,7 +50,13 @@ resource "aws_iam_policy" "lambda_policy" {
       {
         Action = [
           "ec2:DescribeSecurityGroups",
-          "ec2:RevokeSecurityGroupIngress"
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeVpcs"
         ],
         Resource = "*",
         Effect   = "Allow"
