@@ -86,8 +86,10 @@ jobs:
 
       - name: Terraform Plan
         working-directory: infra
+        env:
+          TF_VAR_elastic_password: ${{ secrets.TF_VAR_elastic_password }}
         run: terraform plan -out=tfplan
-
+        
       - name: Upload Plan Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -130,4 +132,6 @@ jobs:
 
       - name: Terraform Apply
         working-directory: infra
+        env:
+          TF_VAR_elastic_password: ${{ secrets.TF_VAR_elastic_password }}
         run: terraform apply -auto-approve tfplan
