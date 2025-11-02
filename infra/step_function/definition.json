@@ -1,5 +1,5 @@
 {
-  "Comment": "SOAR automation workflow",
+  "Comment": "SOAR automation workflow with conditional blocking per source",
   "StartAt": "CheckAlertType",
   "States": {
     "CheckAlertType": {
@@ -13,12 +13,12 @@
         {
           "Variable": "$.source",
           "StringEquals": "OpenVAS",
-          "Next": "CreateCase"
+          "Next": "CreateCaseOnly"
         },
         {
           "Variable": "$.source",
           "StringEquals": "Wazuh",
-          "Next": "CreateCase"
+          "Next": "CheckIfNetworkThreat"
         }
       ],
       "Default": "NotifySafe"
@@ -42,10 +42,28 @@
       "Default": "NotifySafe"
     },
 
+    "CheckIfNetworkThreat": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.category",
+          "StringEquals": "network",
+          "Next": "CreateCase"
+        }
+      ],
+      "Default": "CreateCaseOnly"
+    },
+
     "CreateCase": {
       "Type": "Task",
       "Resource": "${create_case_arn}",
       "Next": "BlockIP"
+    },
+
+    "CreateCaseOnly": {
+      "Type": "Task",
+      "Resource": "${create_case_arn}",
+      "Next": "Notify"
     },
 
     "BlockIP": {
