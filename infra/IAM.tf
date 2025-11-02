@@ -43,6 +43,16 @@ resource "aws_iam_policy" "lambda_policy" {
         Effect   = "Allow"
       },
       {
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+          "kms:DescribeKey"
+        ]
+        Resource = aws_kms_key.sns_cmk.arn
+      },
+      {
         Action   = ["sns:Publish"],
         Resource = aws_sns_topic.sns_soar.arn,
         Effect   = "Allow"
