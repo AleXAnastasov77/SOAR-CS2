@@ -59,13 +59,41 @@ jobs:
       - name: Prepare Lambda source zips
         run: |
           cd infra
-          mkdir -p lambdas
-          echo "Packaging Lambda functions..."
-          zip -j lambdas/check_misp.zip lambdas/check_misp.py
-          zip -j lambdas/create_case.zip lambdas/create_case.py
-          zip -j lambdas/block_ip.zip lambdas/block_ip.py
-          zip -j lambdas/notify.zip lambdas/notify.py
-          zip -j lambdas/send_to_elastic.zip lambdas/send_to_elastic.py
+          mkdir -p lambdas_build
+
+          echo "Packaging Lambda functions with dependencies..."
+
+          # --- check_misp ---
+          mkdir -p lambdas_build/check_misp
+          pip install requests pymisp -t lambdas_build/check_misp/
+          cp lambdas/check_misp.py lambdas_build/check_misp/
+          cd lambdas_build/check_misp && zip -r ../../lambdas/check_misp.zip . && cd ../../..
+
+          # --- create_case ---
+          mkdir -p lambdas_build/create_case
+          pip install requests pymisp -t lambdas_build/create_case/
+          cp lambdas/create_case.py lambdas_build/create_case/
+          cd lambdas_build/create_case && zip -r ../../lambdas/create_case.zip . && cd ../../..
+
+          # --- block_ip ---
+          mkdir -p lambdas_build/block_ip
+          pip install requests pymisp -t lambdas_build/block_ip/
+          cp lambdas/block_ip.py lambdas_build/block_ip/
+          cd lambdas_build/block_ip && zip -r ../../lambdas/block_ip.zip . && cd ../../..
+
+          # --- notify ---
+          mkdir -p lambdas_build/notify
+          pip install requests pymisp -t lambdas_build/notify/
+          cp lambdas/notify.py lambdas_build/notify/
+          cd lambdas_build/notify && zip -r ../../lambdas/notify.zip . && cd ../../..
+
+          # --- send_to_elastic ---
+          mkdir -p lambdas_build/send_to_elastic
+          pip install requests pymisp -t lambdas_build/send_to_elastic/
+          cp lambdas/send_to_elastic.py lambdas_build/send_to_elastic/
+          cd lambdas_build/send_to_elastic && zip -r ../../lambdas/send_to_elastic.zip . && cd ../../..
+
+          echo "All Lambda packages built successfully."
       - name: Upload Lambda Zips
         uses: actions/upload-artifact@v4
         with:
