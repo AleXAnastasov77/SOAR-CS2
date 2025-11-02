@@ -18,7 +18,7 @@
         {
           "Variable": "$.source",
           "StringEquals": "Wazuh",
-          "Next": "CheckIfNetworkThreat"
+          "Next": "CreateCaseOnly"
         }
       ],
       "Default": "NotifySafe"
@@ -40,18 +40,6 @@
         }
       ],
       "Default": "NotifySafe"
-    },
-
-    "CheckIfNetworkThreat": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Variable": "$.category",
-          "StringEquals": "network",
-          "Next": "CreateCase"
-        }
-      ],
-      "Default": "CreateCaseOnly"
     },
 
     "CreateCase": {
