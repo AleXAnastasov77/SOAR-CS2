@@ -3,7 +3,7 @@ resource "aws_vpc_endpoint" "vpc_endpoint" {
   private_dns_enabled = true
   security_group_ids  = [aws_security_group.soar_api_endpoint_sg.id]
   service_name        = "com.amazonaws.${var.region}.execute-api"
-  subnet_ids          = [aws_subnet.privateSIEM_cs2.id, aws_subnet.privateSecurityTools_cs2.id, aws_subnet.privateSOCTools_cs2.id]
+  subnet_ids          = [aws_subnet.privateSIEM_cs2.id]
   vpc_endpoint_type   = "Interface"
   vpc_id              = aws_vpc.vpc_cs2.id
 }
