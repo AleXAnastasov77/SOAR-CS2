@@ -81,7 +81,8 @@ resource "aws_iam_policy" "stepfunction_invoke" {
         aws_lambda_function.check_misp.arn,
         aws_lambda_function.create_case.arn,
         aws_lambda_function.block_ip.arn,
-        aws_lambda_function.notify.arn
+        aws_lambda_function.notify.arn,
+        aws_lambda_function.send_to_elastic.arn
       ]
     }]
   })

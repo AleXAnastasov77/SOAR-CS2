@@ -67,8 +67,8 @@ resource "aws_api_gateway_integration" "stepfn_integration" {
   request_templates = {
     "application/json" = <<EOF
 {
-  "input": "$util.escapeJavaScript($input.body)"
-  "stateMachineArn": "${aws_sfn_state_machine.soar_workflow.arn}",
+  "input": "$util.escapeJavaScript($input.body)",
+  "stateMachineArn": "${aws_sfn_state_machine.soar_workflow.arn}"
 }
 EOF
   }
