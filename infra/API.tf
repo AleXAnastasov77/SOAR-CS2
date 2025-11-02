@@ -68,7 +68,7 @@ resource "aws_api_gateway_integration" "stepfn_integration" {
     "application/json" = <<EOF
 {
   "stateMachineArn": "${aws_sfn_state_machine.soar_workflow.arn}",
-  "input": "$util.escapeJavaScript($input.body)"
+  "input": $input.body
 }
 EOF
   }
@@ -104,4 +104,8 @@ resource "aws_api_gateway_stage" "dev" {
   rest_api_id   = aws_api_gateway_rest_api.soar_api.id
   deployment_id = aws_api_gateway_deployment.soar_deploy.id
   stage_name    = "dev"
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_logs.arn
+    format          = "$context.requestId $context.status $context.error.messageString $context.integration.error"
+  }
 }
