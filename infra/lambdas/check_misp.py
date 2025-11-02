@@ -65,11 +65,7 @@ def lambda_handler(event, context):
                 malicious_flag = True
                 break
 
-        return {
-            "ip": ip,
-            "malicious": malicious_flag,
-            "context": context_info
-        }
+        return {**event, "malicious": malicious_flag}
 
     except Exception as e:
         return {"error": str(e), "ip": ip, "malicious": False, "context": None}

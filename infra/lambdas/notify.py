@@ -11,12 +11,15 @@ def lambda_handler(event, context):
     topic_arn = os.environ.get("TOPIC_ARN")
 
     subject = f"SOAR Alert - {event.get('ip', 'Unknown IP')}"
+    case = event.get("create_case", {})
+    block = event.get("block_ip", {})
+
     message = {
         "IP": event.get("ip"),
         "Malicious": event.get("malicious", False),
-        "Blocked": event.get("blocked", False),
-        "Case ID": event.get("case_id", "N/A"),
-        "Context": event.get("context", None)
+        "Blocked": block.get("blocked", False),
+        "Case ID": case.get("case_id", "N/A"),
+        "Context": case.get("context", "N/A")
     }
 
     try:

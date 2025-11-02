@@ -45,19 +45,22 @@
     "CreateCase": {
       "Type": "Task",
       "Resource": "${create_case_arn}",
-      "Next": "BlockIP"
+      "Next": "BlockIP",
+      "ResultPath": "$.create_case"
     },
 
     "CreateCaseOnly": {
       "Type": "Task",
       "Resource": "${create_case_arn}",
-      "Next": "Notify"
+      "Next": "Notify",
+      "ResultPath": "$.create_case"
     },
 
     "BlockIP": {
       "Type": "Task",
       "Resource": "${block_ip_arn}",
-      "Next": "Notify"
+      "Next": "Notify",
+      "ResultPath": "$.block_ip"
     },
 
     "Notify": {

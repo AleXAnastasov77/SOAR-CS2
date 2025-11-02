@@ -41,7 +41,12 @@ def lambda_handler(event, context):
         r = requests.post(f"{thehive_url}/api/case", headers=headers, json=payload, timeout=10)
         r.raise_for_status()
         data = r.json()
-        return {"case_id": data.get("id"), "case_title": title}
+        return {
+            **event,
+            "case_id": data.get("_id"),
+            "case_title": title,
+            "context": description
+        }
 
     except Exception as e:
         return {"error": str(e), "title": title}

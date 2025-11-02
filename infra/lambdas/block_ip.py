@@ -7,7 +7,8 @@ def lambda_handler(event, context):
     # === safety check ===
     if not malicious:
         print(f"Skipping {ip} — not marked as malicious by MISP.")
-        return {"status": "skipped", "ip": ip}
+        return {**event, "blocked": False, "reason": "not malicious"}
+
 
     ec2 = boto3.client("ec2")
     blocked = []
@@ -28,7 +29,7 @@ def lambda_handler(event, context):
         except Exception as e:
             print(f"{sg['GroupId']} skip/error: {e}")
 
-    return {"status": "blocked", "ip": ip, "groups": blocked}
+    return {**event, "blocked": True, "groups": blocked}
 
 if __name__ == "__main__":
     # mock event payloads
