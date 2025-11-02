@@ -60,40 +60,29 @@ jobs:
         run: |
           cd infra
           mkdir -p lambdas_build
-
           echo "Packaging Lambda functions with dependencies..."
 
-          # --- check_misp ---
-          mkdir -p lambdas_build/check_misp
-          pip install requests pymisp -t lambdas_build/check_misp/
-          cp lambdas/check_misp.py lambdas_build/check_misp/
-          cd lambdas_build/check_misp && zip -r ../../lambdas/check_misp.zip . && cd ../../..
+          for fn in check_misp create_case block_ip notify send_to_elastic; do
+            echo "Packaging $fn..."
 
-          # --- create_case ---
-          mkdir -p lambdas_build/create_case
-          pip install requests pymisp -t lambdas_build/create_case/
-          cp lambdas/create_case.py lambdas_build/create_case/
-          cd lambdas_build/create_case && zip -r ../../lambdas/create_case.zip . && cd ../../..
+            # Create temp build dir
+            mkdir -p lambdas_build/$fn
 
-          # --- block_ip ---
-          mkdir -p lambdas_build/block_ip
-          pip install requests pymisp -t lambdas_build/block_ip/
-          cp lambdas/block_ip.py lambdas_build/block_ip/
-          cd lambdas_build/block_ip && zip -r ../../lambdas/block_ip.zip . && cd ../../..
+            # Install dependencies into that build dir
+            pip install requests pymisp -t lambdas_build/$fn/
 
-          # --- notify ---
-          mkdir -p lambdas_build/notify
-          pip install requests pymisp -t lambdas_build/notify/
-          cp lambdas/notify.py lambdas_build/notify/
-          cd lambdas_build/notify && zip -r ../../lambdas/notify.zip . && cd ../../..
+            # Copy the lambda source file (already inside infra/lambdas/)
+            cp lambdas/$fn.py lambdas_build/$fn/
 
-          # --- send_to_elastic ---
-          mkdir -p lambdas_build/send_to_elastic
-          pip install requests pymisp -t lambdas_build/send_to_elastic/
-          cp lambdas/send_to_elastic.py lambdas_build/send_to_elastic/
-          cd lambdas_build/send_to_elastic && zip -r ../../lambdas/send_to_elastic.zip . && cd ../../..
+            # Zip everything into a flat structure
+            cd lambdas_build/$fn
+            zip -r ../../../lambdas/$fn.zip .
+            cd ../../..
 
-          echo "All Lambda packages built successfully."
+          done
+
+          echo "✅ All Lambda packages built successfully."
+
       - name: Upload Lambda Zips
         uses: actions/upload-artifact@v4
         with:
