@@ -65,20 +65,12 @@ jobs:
           for fn in check_misp create_case block_ip notify send_to_elastic; do
             echo "Packaging $fn..."
 
-            # Create temp build dir
             mkdir -p lambdas_build/$fn
-
-            # Install dependencies
             pip install requests pymisp -t lambdas_build/$fn/
-
-            # Copy lambda source file (already in infra/lambdas)
             cp lambdas/$fn.py lambdas_build/$fn/
 
-            # Zip everything into a flat structure
-            cd lambdas_build/$fn
-            zip -r ../../lambdas/$fn.zip .
-            cd ../../..
-
+            # Zip everything and always return to infra/
+            (cd lambdas_build/$fn && zip -r ../../lambdas/$fn.zip .)
           done
 
           echo "✅ All Lambda packages built successfully."
